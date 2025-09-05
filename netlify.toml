@@ -1,8 +1,8 @@
 [build]
-  functions = "functions"
   publish   = "."
+  functions = "functions"
 
-# كل الروابط تروح لـ index.html (تطبيق صفحة واحدة)
+# SPA fallback (لو أضفت صفحات لاحقًا)
 [[redirects]]
   from = "/*"
   to   = "/index.html"
