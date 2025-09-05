@@ -1,139 +1,161 @@
 // functions/anees.js
-export default async (req, context) => {
+export default async (req) => {
   try {
     const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
     if (!GEMINI_API_KEY) {
-      return jsonError("Missing GEMINI_API_KEY", 500);
+      return json({ ok: false, error: "Missing GEMINI_API_KEY" }, 500);
     }
 
     const { action, subject = "الفيزياء", concept = "", question = "" } = await req.json();
-    if (!action) return jsonError("Missing action", 400);
-    if (!concept) return jsonError("أدخل اسم القانون/المفهوم أولًا.", 400);
+    if (!action) return json({ ok:false, error:"Missing action" }, 400);
+    if (!concept && action !== "solve" && action !== "practice")
+      return json({ ok:false, error:"أدخلي اسم القانون/المفهوم أولاً" }, 400);
 
     const prompt = buildPrompt(action, subject, concept, question);
 
+    // Gemini 1.5 Flash
     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
     const body = {
       contents: [{ role: "user", parts: [{ text: prompt }]}],
       generationConfig: {
         temperature: 0.2,
-        maxOutputTokens: 1000,
+        maxOutputTokens: 1200,
         response_mime_type: "application/json"
-      }
+      },
+      // منع الحجب غير الضروري
+      safetySettings: [
+        { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" },
+        { category: "HARM_CATEGORY_HARASSMENT",        threshold: "BLOCK_NONE" },
+        { category: "HARM_CATEGORY_HATE_SPEECH",        threshold: "BLOCK_NONE" },
+        { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT",  threshold: "BLOCK_NONE" }
+      ]
     };
 
-    const r = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type":"application/json" },
-      body: JSON.stringify(body)
-    });
-
-    if (!r.ok) {
-      const txt = await r.text();
-      return jsonError(`Gemini HTTP ${r.status}: ${txt.slice(0,300)}`, 502);
-    }
-
+    const r = await fetch(url, { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(body) });
     const j = await r.json();
-    const raw = j?.candidates?.[0]?.content?.parts?.[0]?.text || "";
-    if (!raw) return jsonError("Empty response from model", 502);
 
-    // حاول استخراج JSON من المخرَج
-    let data = {};
+    const text = j?.candidates?.[0]?.content?.parts?.[0]?.text || "";
+    if (!text) return json({ ok:false, error:"Empty response from model", raw:j }, 502);
+
+    let data;
     try {
-      data = JSON.parse(extractJson(raw));
-    } catch(e) {
-      return jsonError("Bad JSON from model", 502);
+      data = JSON.parse(extractJson(text));
+    } catch (e) {
+      // نرجّع النص الخام للمساعدة في التشخيص
+      return json({ ok:false, error:"Bad JSON from model", raw:text }, 502);
     }
 
-    // نرجع البيانات مباشرة (بدون تغليف ok/data)
-    return new Response(JSON.stringify(data), { headers: { "Content-Type":"application/json" } });
+    // نعيد الكائن مباشرة كما هو (بدون التفاف إضافي)
+    return json({ ok:true, ...data });
 
   } catch (err) {
-    return jsonError(err.message || "Unexpected error", 500);
+    return json({ ok:false, error: err.message || "Unexpected error" }, 500);
   }
 };
 
-function jsonError(message, code=500){
-  return new Response(JSON.stringify({ error: message }), {
-    status: code,
-    headers: { "Content-Type":"application/json" }
+// ===== Helpers =====
+function json(obj, status = 200) {
+  return new Response(JSON.stringify(obj), {
+    status,
+    headers: { "Content-Type": "application/json; charset=utf-8" }
   });
 }
 
 function buildPrompt(action, subject, concept, question){
   const header =
 `أنت خبير ${subject}.
-اكتب عربيًا فصيحًا. الصيغ والرموز بالإنجليزية وLaTeX داخل $...$ أو $$...$$.
-اكتب الوحدات داخل \\mathrm{} مثل: $9.8\\,\\mathrm{m/s^2}$.
+اكتب بالعربية الفصحى. المعادلات والرموز بالإنجليزية و LaTeX بين $...$ أو $$...$$.
+الوحدات تكتب داخل \\mathrm{} في الشرح العام، لكن رجاءً في جدول "الرموز والوحدات" اكتب الوحدات كنص واضح بلا LaTeX (مثال: N, kg, m/s^2).
+أعيد ONLY كائن JSON صالح تمامًا بلا تعليق أو Markdown.
+
 المفهوم: «${concept}».`;
 
   if (action === "explain") {
+    // شرح القانون
     return header + `
-أعيدي JSON بهذا الشكل بالضبط:
 {
-  "title": "عنوان قصير",
-  "overview": "فقرة تمهيدية واضحة",
+  "title": "عنوان قصير للقانون أو الفكرة",
+  "overview": "فقرة تمهيدية مبسطة.",
   "symbols": [
     "الوصف = القوة، الرمز = F، الوحدة = N",
     "الوصف = الكتلة، الرمز = m، الوحدة = kg",
     "الوصف = التسارع، الرمز = a، الوحدة = m/s^2"
   ],
-  "formulas": ["$$F = m a$$"],
-  "steps": ["١- استخراج المعطيات", "٢- تحديد المجاهيل", "٣- اختيار الصيغة المناسبة", "٤- التعويض ثم الحساب"]
+  "formulas": [
+    "$$F = m a$$"
+  ],
+  "steps": [
+    "١- استخراج المعطيات",
+    "٢- تحديد المجهول/المجاهيل",
+    "٣- اختيار الصيغة المناسبة",
+    "٤- التعويض والحساب مع كتابة الوحدة"
+  ]
 }`;
   }
 
   if (action === "example") {
+    // مثال تطبيقي (المجهول 1)
     return header + `
-أعيدي JSON مثالًا تطبيقيًا مضبوطًا:
 {
-  "title": "عنوان المثال",
-  "scenario": "وصف المسألة بعدد واحد على الأقل مع وحدة",
+  "title": "مثال تطبيقي",
+  "scenario": "دُفِع جسم كتلته 10 kg بقوة ثابتة مقدارها 25 N. أوجد التسارع.",
   "givens": [
-    {"symbol":"m","value":"5.0","unit":"\\\\mathrm{kg}","desc":"كتلة الجسم"},
-    {"symbol":"F","value":"20","unit":"\\\\mathrm{N}","desc":"القوة المؤثرة"}
+    {"symbol":"m","value":"10","unit":"kg","desc":"الكتلة"},
+    {"symbol":"F","value":"25","unit":"N","desc":"القوة المؤثرة"}
   ],
-  "unknowns": [{"symbol":"a","desc":"التسارع"}],
-  "formulas": ["$$F = m a$$"],
+  "unknowns": [{"symbol":"a","desc":"التسارع المطلوب"}],
+  "formula": "$$F = m a$$",
   "steps": [
-    "نكتب القانون $$F=ma$$",
-    "نعوّض بالقيم: $$a = F/m$$",
-    "نحسب القيمة بوحدتها مع توضيح التحويل إن وجد"
+    "نستخدم: a = F / m",
+    "a = 25 / 10 = 2.5"
   ],
-  "result": "$$a = 4\\,\\mathrm{m/s^2}$$"
+  "result": "$$a = 2.5\\,\\mathrm{m/s^2}$$"
 }`;
   }
 
   if (action === "example2") {
+    // مثال آخر (المجهول مختلف)
     return header + `
-مثال آخر على نفس المفهوم لكن غيّري المجهول (إن كان الأول a فاختاري m أو F مثلًا).
-أعيدي نفس شكل JSON المستعمل في "example" تمامًا.`;
+{
+  "title": "مثال آخر",
+  "scenario": "جسم يتحرك بتسارع 3 m/s^2 تحت تأثير قوة مقدارها 18 N. احسب الكتلة.",
+  "givens": [
+    {"symbol":"a","value":"3","unit":"m/s^2","desc":"التسارع"},
+    {"symbol":"F","value":"18","unit":"N","desc":"القوة"}
+  ],
+  "unknowns": [{"symbol":"m","desc":"الكتلة المجهولة"}],
+  "formula": "$$F = m a$$",
+  "steps": [
+    "m = F / a",
+    "m = 18 / 3 = 6"
+  ],
+  "result": "$$m = 6\\,\\mathrm{kg}$$"
+}`;
   }
 
   if (action === "practice") {
+    // اختبر فهمي (سؤال بلا حل)
     return header + `
-أعيدي JSON يحتوي سؤال تدريب واحد فقط دون حل:
-{ "question": "صياغة مسألة رقمية صحيحة حول المفهوم مع أعداد ووحدات، بصيغة LaTeX عند الحاجة" }`;
+{
+  "question": "سُحِب صندوق بقوة أفقية 40 N فصار تسارعه 2 m/s^2. ما كتلته؟"
+}`;
   }
 
   if (action === "solve") {
+    // الحل الصحيح لنص السؤال المعروض
     return header + `
-احسبي حل المسألة التالية وأعيدي JSON مطابق لتنظيم "example":
+أعِد JSON بالتنظيم التالي: givens[], unknowns[], formula (أو formulas[]), steps[], result.
 السؤال: ${question}`;
   }
 
   return header;
 }
 
+// يستخرج كتلة JSON من أي استجابة—even مع ```json
 function extractJson(text){
-  if (!text) return "{}";
-  let t = text.trim()
-    .replace(/^```json/i,'```')
-    .replace(/^```/,'')
-    .replace(/```$/,'')
-    .trim();
-  const a = t.indexOf('{');
-  const b = t.lastIndexOf('}');
+  let t = (text || "").trim();
+  t = t.replace(/^```json/,'```').replace(/^```/,'').replace(/```$/,'').trim();
+  const a = t.indexOf('{'); const b = t.lastIndexOf('}');
   if (a >= 0 && b > a) t = t.slice(a, b+1);
   return t;
 }
