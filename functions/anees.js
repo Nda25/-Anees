@@ -1,4 +1,5 @@
 // functions/anees.js
+
 export default async (req, context) => {
   try {
     const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
@@ -12,7 +13,6 @@ export default async (req, context) => {
 
     const prompt = buildPrompt(action, subject, concept, question);
 
-    // Gemini 1.5 Flash with JSON mime type
     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
     const payload = {
       contents: [{ role: "user", parts: [{ text: prompt }] }],
@@ -38,9 +38,8 @@ export default async (req, context) => {
       data = tryParseJson(extracted);
     }
     
-    // إذا لم ينجح الاستخراج، نستخدم حل احتياطي (fallback)
     if (!data) {
-      const fallbackPrompt = `إعادة صياغة JSON: ${rawText}\nأعِد كائن JSON صحيحًا فقط.`;
+      const fallbackPrompt = `أصلح JSON التالي. أعِد كائن JSON صحيحًا فقط:\n${rawText}`;
       const fallbackPayload = {
         contents: [{ role: "user", parts: [{ text: fallbackPrompt }] }],
         generationConfig: { temperature: 0.2, response_mime_type: "application/json" }
@@ -79,7 +78,7 @@ async function safeJson(req) {
 function tryParseJson(s) { try { return s && JSON.parse(s); } catch (_) { return null; } }
 function extractJson(text) {
   if (!text) return "";
-  let t = (text + "").trim().replace(/^```json/i, "```").replace(/^```/, "").replace(/```$/, "").trim();
+  let t = (text + "").trim().replace(/^```json/i, "```").replace(/^```/, "").replace(/```$/,"").trim();
   const a = t.indexOf("{"), b = t.lastIndexOf("}");
   if (a >= 0 && b > a) t = t.slice(a, b + 1);
   return t;
@@ -88,20 +87,40 @@ function extractJson(text) {
 function buildPrompt(action, subject, concept, question) {
   const header =
     `أنت خبير ${subject}.
-اكتب عربيًا فصيحًا. المعادلات بالـ LaTeX داخل $...$ أو $$...$$، والوحدات داخل \\mathrm{} (مثال: $9.8\\,\\mathrm{m/s^2}$).
+اكتب عربيًا فصيحًا فقط. المعادلات بالـ LaTeX داخل $...$ أو $$...$$، والوحدات داخل \\mathrm{} (مثال: $9.8\\,\\mathrm{m/s^2}$).
 أعِد دائمًا JSON صالحًا فقط، بدون أي شرح إضافي أو نص قبل وبعد الكائن.
 المفهوم: «${concept}».`;
 
-  const explainSchema = `{"title":"عنوان","overview":"تعريف موجز","symbols":["الوصف = القوة، الرمز = F، الوحدة = \\mathrm{N}"], "formulas":["$$F=ma$$"], "steps":["١- خطوة","٢- خطوة"]}`;
-  const exampleSchema = `{"scenario":"نص المسألة","givens":[{"symbol":"F","value":"10","unit":"\\mathrm{N}","desc":"القوة"}], "unknowns":[{"symbol":"a","desc":"التسارع"}], "formula":"$$a=F/m$$", "steps":["١- خطوة","٢- خطوة"], "result":"$$a=...$$"}`;
-  
+  const explainSchema = `
+    "title":"عنوان",
+    "overview":"تعريف موجز",
+    "symbols":[
+      {"desc":"القوة","symbol":"F","unit":"\\mathrm{N}"},
+      {"desc":"الكتلة","symbol":"m","unit":"\\mathrm{kg}"},
+      {"desc":"التسارع","symbol":"a","unit":"\\mathrm{m/s^2}"}
+    ],
+    "formulas":["$$F=ma$$", "$$a=\\frac{F}{m}$$"],
+    "steps":["استخراج المعطيات والمجاهيل","تحديد الصيغة المناسبة","التعويض والحساب"]
+  `.replace(/\s/g, ''); // Remove all whitespace for a compact schema
+
+  const exampleSchema = `
+    "scenario":"نص مسألة صحيحة وواضحة.",
+    "givens":[{"symbol":"m","value":"5","unit":"\\mathrm{kg}","desc":"الكتلة"}],
+    "unknowns":[{"symbol":"a","desc":"التسارع"}],
+    "formula":"$$F = m a$$",
+    "steps":["اكتب الخطوات بدون ترقيم. مثلا: رتب القانون ليصبح $a=F/m$"],
+    "result":"$$a = 2\\,\\mathrm{m/s^2}$$"
+  `.replace(/\s/g, '');
+
   if (action === "explain") {
-    return `${header}\nأعِد JSON يطابق المخطط التالي تمامًا، واملأ الحقول ببيانات عن المفهوم.\nالمخطط: ${explainSchema}`;
+    return `${header}\nأعِد JSON يطابق المخطط التالي تمامًا، واملأ الحقول ببيانات عن المفهوم.
+    \nالمخطط: {${explainSchema}}`;
   }
 
   if (action === "example" || action === "example2") {
     const additionalHint = action === "example2" ? "المجهول يجب أن يكون مختلفًا عن المثال الأول." : "";
-    return `${header}\nأعِد JSON يمثل مسألة تطبيقية عن المفهوم، واملأ الحقول ببيانات حقيقية. ${additionalHint}\nالمخطط: ${exampleSchema}`;
+    return `${header}\nأعِد JSON يمثل مسألة تطبيقية عن المفهوم، واملأ الحقول ببيانات حقيقية. ${additionalHint}
+    \nالمخطط: {${exampleSchema}}`;
   }
 
   if (action === "practice") {
@@ -109,7 +128,8 @@ function buildPrompt(action, subject, concept, question) {
   }
 
   if (action === "solve") {
-    return `${header}\nحل المسألة التالية بالتفصيل. املأ الحقول ببيانات الحل. \nالسؤال: ${question}\nالمخطط: ${exampleSchema}`;
+    return `${header}\nحل المسألة التالية بالتفصيل. املأ الحقول ببيانات الحل.
+    \nالسؤال: ${question}\nالمخطط: {${exampleSchema}}`;
   }
 
   return `${header}{"note":"explain/example/example2/practice/solve فقط"}`;
