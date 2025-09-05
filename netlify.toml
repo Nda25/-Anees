@@ -1,0 +1,6 @@
+# netlify.toml
+[build]
+  functions = "netlify/functions"
+  publish   = "."
+
+# (ما عندنا خطوة build لأن الموقع ستاتيكي بحت)
