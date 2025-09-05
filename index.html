@@ -113,11 +113,7 @@ window.MathJax={tex:{
     <div class="center">
       <table id="symbolsTbl" class="table">
         <thead>
-          <tr>
-            <th>الوصف</th>
-            <th>الرمز</th>
-            <th>الوحدة</th>
-          </tr>
+          <tr><th>الوصف</th><th>الرمز</th><th>الوحدة</th></tr>
         </thead>
         <tbody id="symbols"></tbody>
       </table>
@@ -149,16 +145,16 @@ window.MathJax={tex:{
   function cleanMath(s){ s=(s||'').replace(/\r/g,'\n').replace(/\n{3,}/g,'\n\n'); s=s.replace(/\\\\/g,'\\'); return s.trim(); }
   function fixLatex(s){
     s=cleanMath(s);
-    s=s.replace(/(^|[^\\])\b(frac|sqrt|mathrm|cdot)\b/g,'$1\\$2'); /* تأمين أوامر شائعة */
+    s=s.replace(/(^|[^\\])\b(frac|sqrt|mathrm|cdot)\b/g,'$1\\$2');
     return s;
   }
   function htmlWithMath(input){
     let s=fixLatex(input||'');
     const blocks=[], inlines=[];
-    s=s.replace(/(^|[\s])\$([\s]|$)/g,'$1');      /* $孤 */
+    s=s.replace(/(^|[\s])\$([\s]|$)/g,'$1');
     s=s.replace(/\$\$([\s\S]*?)\$\$/g,(m,inner)=>{blocks.push('$$'+inner+'$$');return '§§B'+(blocks.length-1)+'§§';});
     s=s.replace(/\$([^$]+)\$/g,(m,inner)=>{inlines.push('$'+inner+'$');return '§§I'+(inlines.length-1)+'§§';});
-    s=s.replace(/\$/g,'');                        /* مسح أي $ متبقية */
+    s=s.replace(/\$/g,'');
     s=s.replace(/§§B(\d+)§§/g,(m,i)=>`<div class="math-block">${blocks[i]}</div>`)
        .replace(/§§I(\d+)§§/g,(m,i)=>`<span class="math-inline">${inlines[i]}</span>`);
     return s;
@@ -167,7 +163,7 @@ window.MathJax={tex:{
 })();
 </script>
 
-<!-- ========== واجهة العرض ========== -->
+<!-- ========== العرض ========== -->
 <script>
 (function(){
   const H=window.MATH.htmlWithMath;
@@ -215,8 +211,8 @@ window.MathJax={tex:{
     return tbl;
   }
 
-  function renderCase(container, data){
-    const root=document.getElementById(container); root.innerHTML='';
+  function renderCase(containerId, data){
+    const root=document.getElementById(containerId); root.innerHTML='';
     const frag=document.createDocumentFragment();
 
     const s1=document.createElement('div');
@@ -255,7 +251,8 @@ window.MathJax={tex:{
     document.getElementById('chip2').textContent  = concept || '';
     document.getElementById('overview').innerHTML = H(d.overview||'—');
 
-    const expF=document.getElementById('expFormulas'); expF.innerHTML=''; expF.appendChild(renderFormulasBox(d.formulas||[]));
+    const expF=document.getElementById('expFormulas'); expF.innerHTML='';
+    expF.appendChild(renderFormulasBox(d.formulas||[]));
 
     const tb=document.getElementById('symbols'); tb.innerHTML='';
     (d.symbols||[]).forEach(line=>{
@@ -276,7 +273,7 @@ window.MathJax={tex:{
 })();
 </script>
 
-<!-- ========== تحكم الأزرار (Netlify Function) ========== -->
+<!-- ========== تحكم الأزرار (ينادي دالة Netlify) ========== -->
 <script>
 (function(){
   const $=id=>document.getElementById(id);
@@ -292,8 +289,8 @@ window.MathJax={tex:{
     if(!concept){ showErr('أدخل اسم القانون/المفهوم أولًا.'); return null; }
     setBusy({
       explain:'جارٍ توليد الشرح…',
-      ex1:'جارٍ إنشاء المثال…',
-      ex2:'جارٍ إنشاء المثال الآخر…',
+      example:'جارٍ إنشاء المثال…',
+      example2:'جارٍ إنشاء المثال الآخر…',
       practice:'جارٍ إنشاء سؤال التدريب…',
       solve:'جارٍ الحل…'
     }[action] || 'جارٍ العمل…');
@@ -304,11 +301,9 @@ window.MathJax={tex:{
         headers:{'Content-Type':'application/json'},
         body:JSON.stringify({ action, concept, question: (extra && extra.question) || null })
       });
-      if(!res.ok){
-        const txt=await res.text();
-        throw new Error('خطأ من الخادم: '+res.status+' | '+txt.slice(0,400));
-      }
-      return await res.json();
+      const data = await res.json();
+      if(!res.ok){ throw new Error(data?.error || 'خطأ من الخادم'); }
+      return data; // الخادم يرجّع البيانات مباشرة
     }catch(err){
       showErr(err.message||'خطأ غير متوقع.');
       return null;
@@ -326,7 +321,7 @@ window.MathJax={tex:{
 
   $('btnEx1').addEventListener('click', async ()=>{
     hideAll();
-    const data = await call('ex1');
+    const data = await call('example');
     if(!data) return;
     UI.renderCase('ex1', data);
     $('secEx1').style.display='block';
@@ -334,7 +329,7 @@ window.MathJax={tex:{
 
   $('btnEx2').addEventListener('click', async ()=>{
     hideAll();
-    const data = await call('ex2');
+    const data = await call('example2');
     if(!data) return;
     UI.renderCase('ex2', data);
     $('secEx2').style.display='block';
@@ -345,8 +340,8 @@ window.MathJax={tex:{
     const data = await call('practice');
     if(!data) return;
     LAST_PRACTICE_QUESTION = data.question || '';
-    document.getElementById('practice').innerHTML = UI.H(LAST_PRACTICE_QUESTION || '—');
-    document.getElementById('secPractice').style.display='block';
+    $('practice').innerHTML = UI.H(LAST_PRACTICE_QUESTION || '—');
+    $('secPractice').style.display='block';
     if (window.MathJax?.typesetPromise) MathJax.typesetPromise();
   });
 
