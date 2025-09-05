@@ -1,6 +1,8 @@
-# netlify.toml
 [build]
-  functions = "netlify/functions"
   publish   = "."
+  functions = "functions"
 
-# (ما عندنا خطوة build لأن الموقع ستاتيكي بحت)
+[[redirects]]
+  from = "/*"
+  to   = "/index.html"
+  status = 200
