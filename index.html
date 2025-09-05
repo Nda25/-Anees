@@ -3,107 +3,128 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>أنيس – فيزياء</title>
 
-<!-- خطوط: أميري + كايرو -->
-<link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Cairo:wght@400;700;900&display=swap" rel="stylesheet">
+<title>أنيس – فيزياء</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Amiri:wght@700&family=Cairo:wght@400;700&display=swap" rel="stylesheet">
 
 <style>
 :root{
-  /* لوحة خضراء مثل ورق الشجر */
-  --ink:#073b1a;             /* أخضر داكن للنص */
-  --muted:#5b7d64;           /* أخضر باهت للنص الثانوي */
-  --leaf-25:#eff8f1;         /* خلفيات لطيفة */
-  --leaf-50:#e5f3e7;
-  --leaf-100:#d8ecd9;
-  --btn:#22c55e;             /* زر أخضر */
-  --btn2:#16a34a;
-  --accent:#15803d;          /* عناوين فرعية */
+  /* الألوان الفاتحة */
+  --ink:#0f172a;
+  --muted:#5b6b7c;
+  --bg1:#f3faf5;
+  --bg2:#e9f6ee;
   --card:#ffffff;
+  --border:#cfead8;
+  --btn1:#22c55e; /* أخضر */
+  --btn2:#16a34a;
+  --accent:#16a34a;
+  --chip:#eaf7f0;
+
   --radius:16px;
 }
+
+html.dark{
+  /* ألوان الوضع الداكن */
+  --ink:#e8f7ee;
+  --muted:#a8cbb7;
+  --bg1:#051b10;
+  --bg2:#0b2b18;
+  --card:#0e2016;
+  --border:#1d3a28;
+  --btn1:#22c55e;
+  --btn2:#15803d;
+  --accent:#22c55e;
+  --chip:#0f2c1a;
+}
+
 *{box-sizing:border-box}
 html,body{height:100%}
 body{
   margin:0;color:var(--ink);
   font-family: "Cairo", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   background:
-    radial-gradient(900px 500px at 0% -10%,var(--leaf-100),transparent 60%),
-    radial-gradient(900px 500px at 100% 110%,var(--leaf-50),transparent 60%),
-    linear-gradient(180deg,#fff,var(--leaf-25) 85%);
+    radial-gradient(900px 500px at 0% -10%,var(--bg2),transparent 60%),
+    radial-gradient(900px 500px at 100% 110%,var(--bg1),transparent 60%),
+    linear-gradient(180deg,#fff0, var(--bg1) 85%);
 }
+
 .wrap{max-width:1100px;margin:0 auto;padding:22px;min-height:100vh;display:flex;flex-direction:column}
 
-header{text-align:center;margin:6px 0 16px}
-header h1{
-  font-family:"Amiri","Cairo",serif;
-  font-size:clamp(30px,5.2vw,52px);
-  margin:6px 0 6px;
-  font-weight:700;
-  letter-spacing:.2px;
-  color:var(--ink);
+.toggle{
+  position:fixed; inset-inline-start:12px; inset-block-start:12px;
+  background:var(--card); border:1px solid var(--border); color:var(--ink);
+  border-radius:999px; padding:6px 10px; font-size:.9rem; cursor:pointer;
 }
-header p{color:var(--muted);margin:4px 0 0;font-size:clamp(14px,2.3vw,18px)}
 
-.card{background:var(--card);border:1px solid rgba(21,128,61,.18);border-radius:var(--radius);box-shadow:0 12px 30px rgba(21,128,61,.10)}
+header{text-align:center;margin:18px 0 10px}
+header .logo{
+  display:inline-flex; gap:10px; align-items:center; justify-content:center;
+}
+header .dots{
+  width:26px; height:26px; display:inline-block;
+}
+header h1{
+  font-family:"Amiri", serif;
+  font-weight:700; margin:0;
+  font-size: clamp(32px,5.4vw,52px);
+  letter-spacing:.3px; color:var(--ink);
+}
+header p{color:var(--muted);margin:6px 0 0;font-size:clamp(14px,2.3vw,17px)}
+
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);box-shadow:0 12px 30px rgb(22 163 74 / 8%)}
 .pad{padding:14px}
 
 .inputs{display:flex;gap:12px;flex-wrap:wrap;justify-content:center}
-.input{width:min(560px,100%);padding:10px;border-radius:10px;border:1px solid #cfe9d6;font-size:1rem}
+.input{width:min(560px,100%);padding:10px;border-radius:10px;border:1px solid var(--border);font-size:1rem;background:transparent;color:var(--ink)}
 
 .toolbar{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-top:10px}
 .btn{
-  background:linear-gradient(180deg,var(--btn),var(--btn2));
+  background:linear-gradient(180deg,var(--btn1),var(--btn2));
   color:#fff;border:none;padding:10px 14px;border-radius:12px;font-weight:800;cursor:pointer;
-  box-shadow:0 10px 20px rgba(22,163,74,.25);font-size:clamp(14px,2.4vw,16px)
+  box-shadow:0 10px 20px rgb(34 197 94 / 22%);
+  font-size:clamp(14px,2.4vw,16px)
 }
 .btn:disabled{opacity:.6;cursor:not-allowed}
 
-.status{color:var(--muted);font-size:.95rem;text-align:center;min-height:1.2em}
-.err{background:#fee2e2;color:#991b1b;border:1px solid #fecaca;padding:10px;border-radius:12px;display:none}
+.status{color:var(--muted);font-size:.95rem;text-align:center;min-height:1.2em;margin-top:6px}
+.err{background:#fee2e2;color:#991b1b;border:1px solid #fecaca;padding:10px;border-radius:12px;display:none;margin-top:10px}
 
 .sec{display:none;margin-top:12px}
-.box{background:#f4fbf6;border:1px solid #e0f2e8;padding:12px;border-radius:12px}
+.box{background:var(--bg2);border:1px solid var(--border);padding:12px;border-radius:12px}
 .box ul,.box ol{margin:0 1.1rem}
-.tag{display:inline-block;padding:.28rem .7rem;border-radius:999px;background:#e9f7ed;border:1px solid #cfe9d6;color:#14532d;font-size:.9rem}
+.tag{display:inline-block;padding:.28rem .7rem;border-radius:999px;background:var(--chip);border:1px solid var(--border);color:var(--accent);font-size:.9rem}
 
 .math-inline,.math-block{direction:ltr;unicode-bidi:isolate}
 .math-block{display:block;margin:.35rem auto;text-align:center}
 
-h2.section{color:#16a34a;margin:0 0 8px 0;font-weight:900;text-align:center}
-h3.sub{color:var(--accent);margin:10px 0 6px 0;font-weight:800}
+h2.section{color:var(--accent);margin:0 0 8px 0;font-weight:900;text-align:center}
+h3.sub{color:var(--ink);margin:10px 0 6px 0;font-weight:800}
 
-.table{width:100%;border-collapse:separate;border-spacing:0;overflow:hidden;border-radius:12px;border:1px solid #dcefe3}
-.table th,.table td{border-bottom:1px solid #e7efe9;padding:8px 10px;font-size:15px;text-align:center;vertical-align:middle}
-.table th{background:#e8f6ec;font-weight:800}
+.table{width:100%;border-collapse:separate;border-spacing:0;overflow:hidden;border-radius:12px;border:1px solid var(--border);background:var(--card)}
+.table th,.table td{border-bottom:1px solid var(--border);padding:8px 10px;font-size:15px;text-align:center;vertical-align:middle;color:var(--ink)}
+.table th{background:var(--chip);font-weight:800}
 .table tr:last-child td{border-bottom:none}
-.unit-cell{direction:ltr}
+.unit-cell{direction:ltr} /* الوحدات لليسار نصيًا */
 
-.center{max-width:820px;margin:0 auto}
-.pill{display:inline-block;background:#dcfce7;border:1px solid #bbf7d0;border-radius:999px;padding:.25rem .6rem;margin:.12rem .25rem}
+.center{max-width:840px;margin:0 auto}
+.pill{display:inline-block;background:#d1fae5;border:1px solid #a7f3d0;border-radius:999px;padding:.25rem .6rem;margin:.12rem .25rem;color:#065f46}
+.eq{display:block;text-align:center;margin:.25rem 0}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:760px){.grid2{grid-template-columns:1fr}}
 
-footer{margin-top:auto;text-align:center;color:#5b7d64;padding:16px 0 40px}
-footer .motto{
-  margin-top:12px;
-  font-family:"Amiri","Cairo",serif;
-  font-weight:400;
-  font-size:clamp(15px,2.6vw,19px);
-  color:#3f6b4d;
-}
-footer .motto .stars{margin-inline:6px}
-footer .sig{
-  margin-top:4px;
-  font-weight:700;
-  color:#0b3e1f;
-  font-size:clamp(15px,2.4vw,18px);
-}
+footer{margin-top:auto;text-align:center;color:var(--muted);padding:18px 0 42px}
+footer .slogan{margin-top:12px;color:var(--ink);font-weight:600}
+footer .sig{margin-top:4px;font-weight:800}
 </style>
 
 <!-- MathJax -->
 <script>
 window.MathJax={tex:{
-  inlineMath:[['$','$'],['\\(','\\)']],
-  displayMath:[['$$','$$'],['\\[','\\]']],
+  inlineMath:[['$','$'],['\$begin:math:text$','\\$end:math:text$']],
+  displayMath:[['$$','$$'],['\$begin:math:display$','\\$end:math:display$']],
   processEscapes:true,
   packages:{'[+]':['noerrors','noundefined']}
 }};
@@ -111,10 +132,19 @@ window.MathJax={tex:{
 <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
 </head>
 <body>
-<div class="wrap">
+<button class="toggle" id="themeBtn">الوضع الداكن</button>
 
+<div class="wrap">
   <header>
-    <h1>أنيس – فيزياء</h1>
+    <div class="logo">
+      <!-- ثلاث دوائر خضراء داكنة -->
+      <svg class="dots" viewBox="0 0 24 24" aria-hidden="true">
+        <circle cx="6"  cy="12" r="3.2" fill="#065f46"></circle>
+        <circle cx="12" cy="12" r="3.2" fill="#065f46"></circle>
+        <circle cx="18" cy="12" r="3.2" fill="#065f46"></circle>
+      </svg>
+      <h1>أنيس – فيزياء</h1>
+    </div>
     <p>التميّز والنجاح يبدأ بخطوة.</p>
   </header>
 
@@ -148,7 +178,11 @@ window.MathJax={tex:{
     <div class="center">
       <table id="symbolsTbl" class="table">
         <thead>
-          <tr><th>الوصف</th><th>الرمز</th><th>الوحدة</th></tr>
+          <tr>
+            <th>الوصف</th>
+            <th>الرمز</th>
+            <th>الوحدة</th>
+          </tr>
         </thead>
         <tbody id="symbols"></tbody>
       </table>
@@ -165,31 +199,31 @@ window.MathJax={tex:{
   <section id="secSolve" class="sec card pad">
     <h2 class="section">الحل الصحيح</h2>
     <div id="solve" class="box"></div>
+    <div class="slogan">✨ لكل شيء صعب في حياتنا حل ✨</div>
+    <div class="sig">ندى محمد المجيرش</div>
   </section>
 
   <footer>
     <div>مساعد ذكي لتبسيط قوانين الفيزياء لطلاب الثانوية والجامعة</div>
-    <div class="motto">لكل شيء صعب في حياتنا حل <span class="stars">✨⭐️</span></div>
-    <div class="sig">ندى محمد المجيرش</div>
   </footer>
 </div>
 
-<!-- ========== Math helpers ========== -->
+<!-- ========= Math helper ========= -->
 <script>
 (function(){
   function cleanMath(s){ s=(s||'').replace(/\r/g,'\n').replace(/\n{3,}/g,'\n\n'); s=s.replace(/\\\\/g,'\\'); return s.trim(); }
   function fixLatex(s){
     s=cleanMath(s);
-    s=s.replace(/(^|[^\\])\b(frac|sqrt|mathrm|cdot)\b/g,'$1\\$2');
+    s=s.replace(/(^|[^\\])\b(frac|sqrt|mathrm|cdot|sin|cos|tan)\b/g,'$1\\$2');
     return s;
   }
   function htmlWithMath(input){
     let s=fixLatex(input||'');
     const blocks=[], inlines=[];
-    s=s.replace(/(^|[\s])\$([\s]|$)/g,'$1');
+    s=s.replace(/(^|[\s])\$([\s]|$)/g,'$1'); // lone $
     s=s.replace(/\$\$([\s\S]*?)\$\$/g,(m,inner)=>{blocks.push('$$'+inner+'$$');return '§§B'+(blocks.length-1)+'§§';});
     s=s.replace(/\$([^$]+)\$/g,(m,inner)=>{inlines.push('$'+inner+'$');return '§§I'+(inlines.length-1)+'§§';});
-    s=s.replace(/\$/g,'');
+    s=s.replace(/\$/g,''); // strip any rest
     s=s.replace(/§§B(\d+)§§/g,(m,i)=>`<div class="math-block">${blocks[i]}</div>`)
        .replace(/§§I(\d+)§§/g,(m,i)=>`<span class="math-inline">${inlines[i]}</span>`);
     return s;
@@ -198,17 +232,36 @@ window.MathJax={tex:{
 })();
 </script>
 
-<!-- ========== واجهة العرض ========== -->
+<!-- ========= UI helpers ========= -->
 <script>
 (function(){
   const H=window.MATH.htmlWithMath;
 
+  // إزالة LaTeX من خانة الوحدات لتظهر كنص عادي
+  function cleanUnit(text){
+    let t = (text||'').toString();
+
+    // 1) شِل $$...$$ و $...$
+    t = t.replace(/\$\$([\s\S]*?)\$\$/g,'$1').replace(/\$([^$]+)\$/g,'$1');
+
+    // 2) \mathrm{X} -> X
+    t = t.replace(/\\mathrm\{([^}]+)\}/g,'$1');
+
+    // 3) بدائل LaTeX الشائعة
+    t = t.replace(/\\cdot/g,'·')
+         .replace(/\\times/g,'×')
+         .replace(/\^(-?\d+)/g,'^$1'); // نبقي الأس للأسفل كرمز نصي
+
+    // 4) مسافات لطيفة
+    return t.trim();
+  }
+
   function parseSymbolRow(line){
     line=(line||'').trim();
     const m=line.match(/الوصف\s*=\s*(.*?),\s*الرمز\s*=\s*(.*?),\s*الوحدة\s*=\s*(.*)\s*$/);
-    if(m){ return {desc:m[1].trim(), sym:m[2].trim(), unit:m[3].trim()}; }
+    if(m){ return {desc:m[1].trim(), sym:m[2].trim(), unit: cleanUnit(m[3].trim())}; }
     const toks=line.split(/\s+/).filter(Boolean);
-    if(toks.length>=2){ return {desc:toks.slice(0,-2).join(' '), sym:toks.at(-2), unit:toks.at(-1)}; }
+    if(toks.length>=2){ return {desc:toks.slice(0,-2).join(' '), sym:toks.at(-2), unit: cleanUnit(toks.at(-1))}; }
     return {desc:line||'—', sym:'—', unit:'—'};
   }
 
@@ -229,7 +282,7 @@ window.MathJax={tex:{
 
     (givens||[]).forEach(g=>{
       const tr=document.createElement('tr');
-      tr.innerHTML=`<td>${H(g.symbol||'')}</td><td>${H(g.value||'')}</td><td class="unit-cell">${H(g.unit||'')}</td><td>${H(g.desc||'')}</td>`;
+      tr.innerHTML=`<td>${H(g.symbol||'')}</td><td>${H(g.value||'')}</td><td class="unit-cell">${cleanUnit(g.unit||'')}</td><td>${H(g.desc||'')}</td>`;
       tb.appendChild(tr);
     });
 
@@ -269,10 +322,10 @@ window.MathJax={tex:{
     if((data.steps||[]).length) b4.appendChild(ol);
 
     if (data.result){
-      const hr=document.createElement('div'); hr.style.height='1px'; hr.style.background='#e2e8f0'; hr.style.margin='8px 0';
+      const hr=document.createElement('div'); hr.style.height='1px'; hr.style.background='var(--border)'; hr.style.margin='8px 0';
       b4.appendChild(hr);
       const big=document.createElement('div'); big.className='math-block';
-      const eq = /^\$\$/.test(data.result)? data.result : `$$${data.result.replace(/^\$|\$$/g,'')}$$`;
+      const eq = /^\$\$/.test(data.result)? data.result : `$$${(data.result||'').replace(/^\$|\$$/g,'')}$$`;
       big.innerHTML=H(eq); b4.appendChild(big);
     }
     frag.appendChild(s4); frag.appendChild(b4);
@@ -292,7 +345,7 @@ window.MathJax={tex:{
     (d.symbols||[]).forEach(line=>{
       const {desc,sym,unit}=parseSymbolRow(line);
       const tr=document.createElement('tr');
-      tr.innerHTML=`<td>${H(desc)}</td><td>${H(sym)}</td><td class="unit-cell">${H(unit)}</td>`;
+      tr.innerHTML=`<td>${H(desc)}</td><td>${H(sym)}</td><td class="unit-cell">${unit}</td>`;
       tb.appendChild(tr);
     });
 
@@ -307,47 +360,43 @@ window.MathJax={tex:{
 })();
 </script>
 
-<!-- ========== تحكم الأزرار (Netlify Function) ========== -->
+<!-- ========= Theme + Actions ========= -->
 <script>
 (function(){
   const $=id=>document.getElementById(id);
   const secs=['secExplain','secEx1','secEx2','secPractice','secSolve'];
+
+  // Theme toggle
+  const btn=$('themeBtn');
+  function applyTheme(t){ document.documentElement.classList.toggle('dark', t==='dark'); btn.textContent = t==='dark' ? 'الوضع الفاتح' : 'الوضع الداكن'; }
+  const saved=localStorage.getItem('theme')||'light'; applyTheme(saved);
+  btn.onclick=()=>{ const t=document.documentElement.classList.contains('dark')?'light':'dark'; localStorage.setItem('theme',t); applyTheme(t); };
+
   function hideAll(){ secs.forEach(id=>$(id).style.display='none'); const e=$('error'); e.style.display='none'; e.textContent=''; }
   function setBusy(t){ $('status').textContent=t||''; document.querySelectorAll('.btn').forEach(b=>b.disabled=!!t); }
-  function showErr(m){ const e=$('error'); e.style.display='block'; e.textContent=m||'حدث خطأ غير متوقع.'; }
+  function showErr(m, raw){ const e=$('error'); e.style.display='block'; e.textContent=m||'حدث خطأ غير متوقع.'; if(raw){ e.textContent += ' | raw: ' + String(raw).slice(0,300); } }
 
   let LAST_PRACTICE_QUESTION = '';
 
   async function call(action, extra){
     const concept=($('concept').value||'').trim();
-    if(!concept && action!=='solve'){ showErr('أدخل اسم القانون/المفهوم أولًا.'); return null; }
-    setBusy({
-      explain:'جارٍ توليد الشرح…',
-      example:'جارٍ إنشاء المثال…',
-      example2:'جارٍ إنشاء المثال الآخر…',
-      practice:'جارٍ إنشاء سؤال التدريب…',
-      solve:'جارٍ الحل…'
-    }[action] || 'جارٍ العمل…');
-
+    if(!concept && action!=='practice' && action!=='solve'){ showErr('أدخل اسم القانون/المفهوم أولًا.'); return null; }
+    const msgs={explain:'جارٍ توليد الشرح…', example:'جارٍ إنشاء المثال…', example2:'جارٍ إنشاء المثال الآخر…', practice:'جارٍ إنشاء سؤال التدريب…', solve:'جارٍ الحل…'};
+    setBusy(msgs[action]||'جارٍ العمل…');
     try{
       const res = await fetch('/.netlify/functions/anees', {
         method:'POST',
         headers:{'Content-Type':'application/json'},
         body:JSON.stringify({ action, concept, question: (extra && extra.question) || null })
       });
-      if(!res.ok){
-        const txt=await res.text();
-        throw new Error('خطأ من الخادم: '+res.status+' | '+txt.slice(0,400));
-      }
-      const out = await res.json();
-      if(!out.ok) throw new Error(out.error || 'استجابة غير صالحة.');
-      return out.data;
+      const out = await res.json().catch(()=>null);
+      if(!res.ok || !out){ showErr('خطأ من الخادم', out && out.raw); return null; }
+      if(out.ok === false){ showErr(out.error||'خطأ من الخادم', out.raw); return null; }
+      return out;
     }catch(err){
       showErr(err.message||'خطأ غير متوقع.');
       return null;
-    }finally{
-      setBusy('');
-    }
+    }finally{ setBusy(''); }
   }
 
   $('btnExplain').addEventListener('click', async ()=>{
@@ -378,14 +427,14 @@ window.MathJax={tex:{
     const data = await call('practice');
     if(!data) return;
     LAST_PRACTICE_QUESTION = data.question || '';
-    document.getElementById('practice').innerHTML = UI.H(LAST_PRACTICE_QUESTION || '—');
-    document.getElementById('secPractice').style.display='block';
+    $('practice').innerHTML = UI.H(LAST_PRACTICE_QUESTION || '—');
+    $('secPractice').style.display='block';
     if (window.MathJax?.typesetPromise) MathJax.typesetPromise();
   });
 
   $('btnSolve').addEventListener('click', async ()=>{
     hideAll();
-    if(!LAST_PRACTICE_QUESTION){ showErr('اعرضي أولاً سؤال "اختبر فهمي" ثم اضغطي "الحل الصحيح".'); return; }
+    if(!LAST_PRACTICE_QUESTION){ showErr('اعرضي أولًا سؤال "اختبر فهمي" ثم اضغطي "الحل الصحيح".'); return; }
     const data = await call('solve', {question: LAST_PRACTICE_QUESTION});
     if(!data) return;
     UI.renderCase('solve', data);
