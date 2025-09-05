@@ -1,161 +1,117 @@
 // functions/anees.js
-export default async (req) => {
+export default async (req, context) => {
   try {
     const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
     if (!GEMINI_API_KEY) {
-      return json({ ok: false, error: "Missing GEMINI_API_KEY" }, 500);
+      return json({ ok:false, error: "Missing GEMINI_API_KEY" }, 500);
     }
 
-    const { action, subject = "الفيزياء", concept = "", question = "" } = await req.json();
-    if (!action) return json({ ok:false, error:"Missing action" }, 400);
-    if (!concept && action !== "solve" && action !== "practice")
-      return json({ ok:false, error:"أدخلي اسم القانون/المفهوم أولاً" }, 400);
+    const body = await safeJson(req);
+    const { action, subject = "الفيزياء", concept = "", question = "" } = body || {};
+    if (!concept) return json({ ok:false, error:"أدخلي اسم القانون/المفهوم." }, 400);
 
     const prompt = buildPrompt(action, subject, concept, question);
 
-    // Gemini 1.5 Flash
+    // Gemini 1.5 Flash with JSON mime type
     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
-    const body = {
+    const payload = {
       contents: [{ role: "user", parts: [{ text: prompt }]}],
       generationConfig: {
         temperature: 0.2,
-        maxOutputTokens: 1200,
+        maxOutputTokens: 900,
         response_mime_type: "application/json"
-      },
-      // منع الحجب غير الضروري
-      safetySettings: [
-        { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" },
-        { category: "HARM_CATEGORY_HARASSMENT",        threshold: "BLOCK_NONE" },
-        { category: "HARM_CATEGORY_HATE_SPEECH",        threshold: "BLOCK_NONE" },
-        { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT",  threshold: "BLOCK_NONE" }
-      ]
+      }
     };
 
-    const r = await fetch(url, { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(body) });
-    const j = await r.json();
+    const r = await fetch(url, { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(payload) });
+    const j = await r.json().catch(()=>null);
 
-    const text = j?.candidates?.[0]?.content?.parts?.[0]?.text || "";
-    if (!text) return json({ ok:false, error:"Empty response from model", raw:j }, 502);
+    // التقط النص الناتج
+    const rawText = j?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+    let data = tryParseJson(rawText);
 
-    let data;
-    try {
-      data = JSON.parse(extractJson(text));
-    } catch (e) {
-      // نرجّع النص الخام للمساعدة في التشخيص
-      return json({ ok:false, error:"Bad JSON from model", raw:text }, 502);
+    if (!data) {
+      // بعض الأحيان يرجع النموذج نصًا يحيط بالـ JSON — نحاول اقتطافه
+      const extracted = extractJson(rawText);
+      data = tryParseJson(extracted);
     }
 
-    // نعيد الكائن مباشرة كما هو (بدون التفاف إضافي)
-    return json({ ok:true, ...data });
+    if (!data) {
+      return json({ ok:false, error:"Bad JSON from model", raw: rawText }, 502);
+    }
+
+    // نعيد الكائن مباشرة أو داخل data — كلاهما تدعمه الواجهة
+    return json({ ok:true, data });
 
   } catch (err) {
-    return json({ ok:false, error: err.message || "Unexpected error" }, 500);
+    return json({ ok:false, error: err?.message || "Unexpected error" }, 500);
   }
 };
 
-// ===== Helpers =====
+/* ===== Helpers ===== */
 function json(obj, status = 200) {
-  return new Response(JSON.stringify(obj), {
-    status,
-    headers: { "Content-Type": "application/json; charset=utf-8" }
-  });
+  return new Response(JSON.stringify(obj), { status, headers: { "Content-Type":"application/json; charset=utf-8" } });
+}
+async function safeJson(req){
+  try { return await req.json(); } catch(_) { return {}; }
+}
+function tryParseJson(s){ try{ return s && JSON.parse(s); }catch(_){ return null; } }
+function extractJson(text){
+  if (!text) return "";
+  let t = (text+"").trim().replace(/^```json/i,"```").replace(/^```/,"").replace(/```$/,"").trim();
+  const a = t.indexOf("{"), b = t.lastIndexOf("}");
+  if (a>=0 && b>a) t = t.slice(a, b+1);
+  return t;
 }
 
 function buildPrompt(action, subject, concept, question){
   const header =
 `أنت خبير ${subject}.
-اكتب بالعربية الفصحى. المعادلات والرموز بالإنجليزية و LaTeX بين $...$ أو $$...$$.
-الوحدات تكتب داخل \\mathrm{} في الشرح العام، لكن رجاءً في جدول "الرموز والوحدات" اكتب الوحدات كنص واضح بلا LaTeX (مثال: N, kg, m/s^2).
-أعيد ONLY كائن JSON صالح تمامًا بلا تعليق أو Markdown.
-
+اكتب عربيًا فصيحًا. المعادلات بالـ LaTeX داخل $...$ أو $$...$$، والوحدات داخل \\mathrm{} (مثال: $9.8\\,\\mathrm{m/s^2}$).
+أعيدي دائمًا JSON صالحًا بدون شرح إضافي.
 المفهوم: «${concept}».`;
 
   if (action === "explain") {
-    // شرح القانون
     return header + `
 {
-  "title": "عنوان قصير للقانون أو الفكرة",
-  "overview": "فقرة تمهيدية مبسطة.",
-  "symbols": [
-    "الوصف = القوة، الرمز = F، الوحدة = N",
-    "الوصف = الكتلة، الرمز = m، الوحدة = kg",
-    "الوصف = التسارع، الرمز = a، الوحدة = m/s^2"
-  ],
-  "formulas": [
-    "$$F = m a$$"
-  ],
-  "steps": [
-    "١- استخراج المعطيات",
-    "٢- تحديد المجهول/المجاهيل",
-    "٣- اختيار الصيغة المناسبة",
-    "٤- التعويض والحساب مع كتابة الوحدة"
-  ]
+  "title": "عنوان قصير",
+  "overview": "تعريف ووصف موجز للمفهوم",
+  "symbols": ["الوصف = القوة، الرمز = F، الوحدة = \\mathrm{N}", "الوصف = الكتلة، الرمز = m، الوحدة = \\mathrm{kg}"],
+  "formulas": ["$$F = m a$$"],
+  "steps": ["١- استخراج المعطيات", "٢- تحديد المجاهيل", "٣- اختيار الصيغة المناسبة", "٤- التعويض والحساب"]
 }`;
   }
 
   if (action === "example") {
-    // مثال تطبيقي (المجهول 1)
     return header + `
 {
   "title": "مثال تطبيقي",
-  "scenario": "دُفِع جسم كتلته 10 kg بقوة ثابتة مقدارها 25 N. أوجد التسارع.",
-  "givens": [
-    {"symbol":"m","value":"10","unit":"kg","desc":"الكتلة"},
-    {"symbol":"F","value":"25","unit":"N","desc":"القوة المؤثرة"}
-  ],
-  "unknowns": [{"symbol":"a","desc":"التسارع المطلوب"}],
+  "scenario": "نص مسألة صحيحة وواضحة.",
+  "givens": [{"symbol":"m","value":"5","unit":"\\mathrm{kg}","desc":"الكتلة"},{"symbol":"F","value":"10","unit":"\\mathrm{N}","desc":"القوة"}],
+  "unknowns": [{"symbol":"a","desc":"التسارع"}],
   "formula": "$$F = m a$$",
-  "steps": [
-    "نستخدم: a = F / m",
-    "a = 25 / 10 = 2.5"
-  ],
-  "result": "$$a = 2.5\\,\\mathrm{m/s^2}$$"
+  "steps": ["ترتيب الصيغة: $$a = \\frac{F}{m}$$","التعويض بالقيم","الحساب وكتابة الوحدة"],
+  "result": "$$a = 2\\,\\mathrm{m/s^2}$$"
 }`;
   }
 
   if (action === "example2") {
-    // مثال آخر (المجهول مختلف)
     return header + `
-{
-  "title": "مثال آخر",
-  "scenario": "جسم يتحرك بتسارع 3 m/s^2 تحت تأثير قوة مقدارها 18 N. احسب الكتلة.",
-  "givens": [
-    {"symbol":"a","value":"3","unit":"m/s^2","desc":"التسارع"},
-    {"symbol":"F","value":"18","unit":"N","desc":"القوة"}
-  ],
-  "unknowns": [{"symbol":"m","desc":"الكتلة المجهولة"}],
-  "formula": "$$F = m a$$",
-  "steps": [
-    "m = F / a",
-    "m = 18 / 3 = 6"
-  ],
-  "result": "$$m = 6\\,\\mathrm{kg}$$"
-}`;
+"أعيدي مثالًا آخر على نفس المفهوم لكن بجعل المجهول مختلفًا.
+استخدمي نفس شكل JSON السابق تمامًا."`;
   }
 
   if (action === "practice") {
-    // اختبر فهمي (سؤال بلا حل)
     return header + `
-{
-  "question": "سُحِب صندوق بقوة أفقية 40 N فصار تسارعه 2 m/s^2. ما كتلته؟"
-}`;
+{ "question": "سؤال عددي كامل عن «${concept}» يتضمن قيمًا بوحدات صحيحة بصيغة LaTeX، بدون حل." }`;
   }
 
   if (action === "solve") {
-    // الحل الصحيح لنص السؤال المعروض
     return header + `
-أعِد JSON بالتنظيم التالي: givens[], unknowns[], formula (أو formulas[]), steps[], result.
+حل السؤال التالي بنفس حقول JSON: givens[], unknowns[], formula أو formulas[], steps[], result (صيغة LaTeX).
 السؤال: ${question}`;
   }
 
-  return header;
-}
-
-// يستخرج كتلة JSON من أي استجابة—even مع ```json
-function extractJson(text){
-  let t = (text || "").trim();
-  t = t.replace(/^```json/,'```').replace(/^```/,'').replace(/```$/,'').trim();
-  const a = t.indexOf('{'); const b = t.lastIndexOf('}');
-  if (a >= 0 && b > a) t = t.slice(a, b+1);
-  return t;
+  // افتراضي
+  return header + `{"note":"explain/example/example2/practice/solve فقط"}`;
 }
