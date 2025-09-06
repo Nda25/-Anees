@@ -1,156 +1,391 @@
-// functions/anees.js
-export default async (req) => {
-  try {
-    const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-    if (!GEMINI_API_KEY) return json({ ok:false, error:"Missing GEMINI_API_KEY" }, 500);
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>أنيس – فيزياء</title>
 
-    const body = await safeJson(req);
-    const { action, subject="الفيزياء", concept="", question="" } = body || {};
-    if (!concept) return json({ ok:false, error:"أدخلي اسم القانون/المفهوم." }, 400);
+<!-- Amiri لاسم البوت فقط، Cairo لباقي الصفحة -->
+<link href="https://fonts.googleapis.com/css2?family=Amiri:wght@700&family=Cairo:wght@300;400;600;700&display=swap" rel="stylesheet"/>
 
-    const prompt = buildPrompt(action, subject, concept, question);
-
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
-    const payload = {
-      contents: [{ role:"user", parts:[{ text: prompt }]}],
-      generationConfig:{
-        temperature: action==="practice" ? 0.6 : action==="example2" ? 0.5 : 0.35,
-        maxOutputTokens: 950,
-        response_mime_type: "application/json"
-      }
-    };
-
-    const r = await fetch(url, { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(payload) });
-    const j = await r.json().catch(()=>null);
-
-    const raw =
-      j?.candidates?.[0]?.content?.parts?.[0]?.text ??
-      j?.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data ??
-      "";
-
-    let data =
-      tryParseJson(raw) ||
-      tryParseJson(extractJson(raw)) ||
-      tryParseJson(sanitizeJson(extractJson(raw))) ||
-      null;
-
-    if (!data) {
-      const fixPayload = {
-        contents: [{ role:"user", parts:[{ text:
-`أصلحي JSON التالي ليكون صالحًا 100٪ ويطابق المخطط المطلوب.
-أعيدي الكائن فقط بلا أي كودات أو شرح:
-
-${raw}` }]}],
-        generationConfig:{ temperature:0.2, response_mime_type:"application/json" }
-      };
-      const rr = await fetch(url, { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(fixPayload) });
-      const jj = await rr.json().catch(()=>null);
-      const raw2 = jj?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
-      data =
-        tryParseJson(raw2) ||
-        tryParseJson(extractJson(raw2)) ||
-        tryParseJson(sanitizeJson(extractJson(raw2)));
-    }
-
-    if (!data) return json({ ok:false, error:"Bad JSON from model" }, 502);
-
-    tidyPayloadNumbers(data);
-
-    // حل مشكلة الترقيم في الخطوات
-    if (Array.isArray(data.steps)) {
-      data.steps = data.steps.map(s => s.replace(/^\s*\d+\.\s*/, '').trim());
-    }
-    // حل مشكلة الرموز في الجدول
-    if (Array.isArray(data.symbols)) {
-      data.symbols = data.symbols.map(s => ({
-        ...s,
-        symbol: s.symbol.replace(/^\$|\$$/g, '') // إزالة علامات $ من الرموز
-      }));
-    }
-
-    return json({ ok:true, data });
-
-  } catch (err) {
-    return json({ ok:false, error: err?.message || "Unexpected error" }, 500);
-  }
-};
-
-/* ================= Helpers ================= */
-function json(obj, status=200){
-  return new Response(JSON.stringify(obj), {
-    status,
-    headers:{ "Content-Type":"application/json; charset=utf-8" }
-  });
+<style>
+:root{
+  --ink:#0d1b12; --muted:#5c6f62;
+  --leaf-25:#eef7f1; --leaf-50:#e3f1e7; --leaf-100:#d6eadc;
+  --accent:#1b7d3b; --accent-2:#27a158;
+  --card:#fff; --ring:#bfe6c9; --btn-shadow:rgba(39,161,88,.25);
+  --sub:#0e7a43; --h:#0e7a43;
+  --chip-bg:#e7f7ec; --chip-bd:#c8e9d3;
+  --error-bg:#fee2e2; --error-bd:#fecaca; --error-ink:#7f1d1d;
 }
-async function safeJson(req){ try{ return await req.json(); }catch{ return {}; } }
-function tryParseJson(s){ try{ return s && JSON.parse(s); }catch{ return null; } }
-function extractJson(text){
-  if (!text) return "";
-  let t = (text+"")
-    .replace(/\uFEFF/g,"")
-    .replace(/[\u200E\u200F\u202A-\u202E]/g,"")
-    .trim()
-    .replace(/^```json/i,"```")
-    .replace(/^```/,"")
-    .replace(/```$/,"")
-    .trim();
-  const a = t.indexOf("{"), b = t.lastIndexOf("}");
-  if (a>=0 && b>a) t = t.slice(a, b+1);
-  return t;
-}
-function sanitizeJson(t){
-  return (t||"")
-    .replace(/[“”]/g,'"')
-    .replace(/[‘’]/g,"'")
-    .replace(/,\s*([}\]])/g,"$1")
-    .replace(/:\s*undefined/g,": null")
-    .replace(/\s+\n/g,"\n")
-    .trim();
-}
-function sciToLatex(v){
-  const s = (v??"")+"";
-  const m = s.match(/^\s*([+-]?\d+(?:\.\d+)?)e([+-]?\d+)\s*$/i);
-  if(!m) return s;
-  const mant = m[1].replace(/^([+-]?)(\d+)\.0+$/,"$1$2");
-  const exp = parseInt(m[2],10);
-  return `$${mant}\\times10^{${exp}}$`;
-}
-function tidyPayloadNumbers(obj){
-  const fix = (x)=> {
-    if (typeof x === "number") return sciToLatex(x);
-    if (/^\s*[+-]?\d+(\.\d+)?e[+-]?\d+\s*$/i.test((x||"")+"")) return sciToLatex(x);
-    return x;
-  };
-  if (Array.isArray(obj.givens)) obj.givens = obj.givens.map(g => ({ ...g, value: fix(g.value) }));
-  if (Array.isArray(obj.unknowns)) obj.unknowns = obj.unknowns.map(u => ({ ...u }));
+html.dark{
+  --ink:#e9fbea; --muted:#cfead7;
+  --leaf-25:#0b1710; --leaf-50:#0d1c12; --leaf-100:#0f2216;
+  --accent:#2a9a56; --accent-2:#1f7f47;
+  --card:#0f1c14; --ring:#194a2d; --btn-shadow:rgba(109,208,148,.22);
+  --sub:#9ce0b4; --h:#9ce0b4;
+  --chip-bg:#143a23; --chip-bd:#19512f;
+  --error-bg:#3a1010; --error-bd:#5b1a1a; --error-ink:#ffd7d7;
 }
 
-/* ================= Prompt Builder ================= */
-function buildPrompt(action, subject, concept, question){
-  const BASE = `أنت خبيرة ${subject}.
-اكتبي بالعربية الفصحى فقط (ممنوع الإنجليزية).
-التزمي STRICTLY بالمفهوم المطلوب: «${concept}» ولا تنتقلي لغيره.
-اكتبي الوحدات داخل \\mathrm{...} حصرًا: \\mathrm{N}, \\mathrm{kg}, \\mathrm{m/s^2} ...
-استعملي ترميز LaTeX داخل $...$ أو $$...$$ للمعادلات والرموز ذات السفلية (m_1, v_f).
-القيم العددية الكبيرة اكتبيها بصيغة LaTeX العلمية (a\\times10^{n}) لا بصيغة e.
-أعيدي كائن JSON صالح فقط بدون أي شرح أو أسطر زائدة.`;
-  const EXPLAIN_SCHEMA = `{"title":"string","overview":"string","symbols":[{"desc":"string","symbol":"string","unit":"string"}],"formulas":["string"],"steps":["string"]}`;
-  const EXAMPLE_SCHEMA = `{"scenario":"string","givens":[{"symbol":"string","value":"string","unit":"string","desc":"string"}],"unknowns":[{"symbol":"string","desc":"string"}],"formula":"string","steps":["string"],"result":"string"}`;
-  const PRACTICE_SCHEMA = `{"question":"string"}`;
-  if (action === "explain"){
-    return `${BASE}\nأعيدي JSON يطابق هذا المخطط: ${EXPLAIN_SCHEMA}\n- اجعلي "formulas" صحيحة وتتعلق فقط بـ «${concept}».\n- اجعلي "symbols" مختصرة: (desc عربي واضح، symbol مثل F أو m_1، unit داخل \\mathrm{...}).\n- اجعلي "steps" قائمة بنقاط منفصلة (كل نقطة خطوة منفصلة).`;
-  }
-  if (action === "example"){
-    return `${BASE}\nأعيدي JSON يطابق هذا المخطط: ${EXAMPLE_SCHEMA}\nالمستوى: متوسط. اختاري مجهولًا مناسبًا واحدًا لهذا المفهوم.\nاستخدمي قيَمًا منطقية ووحدات صحيحة. اشرحي الخطوات بالعربية، وأي معادلة داخل $...$.\n- اجعلي كل خطوة في عنصر منفصل داخل مصفوفة "steps".`;
-  }
-  if (action === "example2"){
-    return `${BASE}\nأعيدي JSON يطابق هذا المخطط: ${EXAMPLE_SCHEMA}\nالمستوى: فوق المتوسط بدرجة (خطوات اعتماد/اشتقاق إضافية).\nاختاري مجهولًا مختلفًا عن المثال الشائع لنفس المفهوم (متغير آخر من نفس القانون).\nتأكدي أن القانون والصيغ تخص «${concept}» تحديدًا.\n- اجعلي كل خطوة في عنصر منفصل داخل مصفوفة "steps".`;
-  }
-  if (action === "practice"){
-    return `${BASE}\nأعيدي JSON يطابق هذا المخطط: ${PRACTICE_SCHEMA}\nاكتبي سؤال تدريب عربي فقط من 2–3 جُمل، بمستوى "متوسط".\nغيّري السيناريو والمجهول في كل مرة (عشوائيًا بين متغيرات المفهوم الشائعة).\nضمّني أعدادًا مع وحداتها الصحيحة بصيغة LaTeX، وامتنعي عن e-notation نهائيًا.`;
-  }
-  if (action === "solve"){
-    return `${BASE}\nحلّي المسألة التالية وأعيدي JSON يطابق مخطط المثال: ${EXAMPLE_SCHEMA}\nالسؤال: ${question}\n- رتّبي givens/unknowns بدقة ووحدات صحيحة.\n- اجعلي Steps بالعربية وأي معادلة داخل $...$ أو $$...$$.\n- ضعي النتيجة النهائية في "result" بصيغة LaTeX مع الوحدة.\n- اجعلي كل خطوة في عنصر منفصل داخل مصفوفة "steps".`;
-  }
-  return `${BASE}{"error":"unknown action"}`;
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0; color:var(--ink);
+  font-family:"Cairo", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  /* الخلفية الفاتحة */
+  background:
+    radial-gradient(900px 520px at 10% -10%, var(--leaf-100), transparent 60%),
+    radial-gradient(900px 520px at 90% 110%, var(--leaf-50), transparent 60%),
+    linear-gradient(180deg, var(--leaf-25), var(--leaf-25) 85%);
+  overflow-x:hidden;
 }
+/* خلفية الوضع الداكن — داكنة بالكامل (بدون أبيض أعلى الصفحة) */
+html.dark body{
+  background:
+    radial-gradient(900px 520px at 8% -12%, #11241a, transparent 60%),
+    radial-gradient(900px 520px at 92% 112%, #0d1c14, transparent 60%),
+    linear-gradient(180deg, #0a1510, #0f2216 85%);
+}
+
+/* فقاعات/أوراق متحركة أوضح */
+body::before, body::after{
+  content:""; position:fixed; inset:0; z-index:-1; pointer-events:none;
+  background:
+    radial-gradient(70px 42px at 82% 24%, rgba(27,125,59,.20) 0%, transparent 70%),
+    radial-gradient(130px 72px at 20% 30%, rgba(27,125,59,.18) 0%, transparent 70%),
+    radial-gradient(160px 90px at 48% 78%, rgba(27,125,59,.20) 0%, transparent 70%),
+    radial-gradient(90px 60px at 12% 68%, rgba(27,125,59,.16) 0%, transparent 70%),
+    radial-gradient(110px 70px at 88% 82%, rgba(27,125,59,.16) 0%, transparent 70%);
+  animation:floaty 18s infinite alternate ease-in-out;
+  opacity:.95;
+}
+html.dark body::before,
+html.dark body::after{
+  /* نفس الفقاعات لكن بدرجة أغمق قليلاً في الداكن */
+  background:
+    radial-gradient(70px 42px at 82% 24%, rgba(92,184,125,.18) 0%, transparent 70%),
+    radial-gradient(130px 72px at 20% 30%, rgba(92,184,125,.16) 0%, transparent 70%),
+    radial-gradient(160px 90px at 48% 78%, rgba(92,184,125,.18) 0%, transparent 70%),
+    radial-gradient(90px 60px at 12% 68%, rgba(92,184,125,.14) 0%, transparent 70%),
+    radial-gradient(110px 70px at 88% 82%, rgba(92,184,125,.14) 0%, transparent 70%);
+}
+body::after{opacity:.85; animation-duration:26s; animation-delay:-6s; filter:blur(.3px) contrast(108%);}
+@keyframes floaty{from{transform:translateY(0)} to{transform:translateY(26px)}}
+
+.wrap{max-width:1100px;margin:0 auto;padding:22px;min-height:100vh;display:flex;flex-direction:column}
+.theme-toggle{position:fixed;top:14px;left:14px;z-index:5;background:var(--card);color:var(--ink);
+  border:1px solid var(--ring);border-radius:999px;padding:6px 10px;cursor:pointer;font-size:14px}
+
+header{text-align:center;margin:6px 0 8px}
+header .title{
+  display:inline-flex; align-items:center; gap:10px; margin-bottom:2px;
+}
+header h1{
+  font-family:"Amiri", serif;
+  font-size:clamp(36px,6vw,58px);
+  margin:0; font-weight:700; letter-spacing:.2px; color:var(--accent);
+}
+.logo-dot{
+  width:26px; height:26px; border-radius:50%; background:var(--accent);
+  box-shadow:12px 0 0 0 var(--accent),
+             24px 0 0 0 color-mix(in oklab, var(--accent) 82%, white 18%);
+  /* لأن الدوائر الآن قبل الاسم، نضيف مسافة بسيطة يمينها */
+  margin-inline-end:6px;
+}
+
+/* العبارة التحفيزية — تبقى تحت الاسم، ولونها ثابت مناسب */
+header p.subtitle{
+  display:block; margin:6px auto 0;
+  color:#2f513e; font-weight:600; font-size:clamp(14px,2.4vw,18px);
+  text-shadow:0 1px 0 rgba(255,255,255,.25);
+}
+html.dark header p.subtitle{
+  color:#bfead0; text-shadow:0 1px 0 rgba(0,0,0,.45);
+}
+
+.card{background:var(--card);border:1px solid var(--ring);border-radius:16px;box-shadow:0 12px 30px rgba(0,0,0,.06)}
+.pad{padding:14px}
+.inputs{display:flex;gap:12px;flex-wrap:wrap;justify-content:center}
+.input{width:min(560px,100%);padding:10px;border-radius:8px;border:1px solid var(--ring);font-size:18px;background:transparent;color:var(--ink)}
+.toolbar{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-top:10px}
+.btn{background:linear-gradient(180deg,var(--accent),var(--accent-2));color:#fff;border:none;padding:10px 14px;border-radius:12px;
+  font-weight:700;cursor:pointer;box-shadow:0 10px 20px var(--btn-shadow);font-size:16px}
+.btn:disabled{opacity:.6;cursor:not-allowed}
+
+.status{color:var(--muted);font-size:.95rem;text-align:center;min-height:1.2em}
+.err{background:var(--error-bg);color:var(--error-ink);border:1px solid var(--error-bd);padding:10px;border-radius:12px;display:none}
+
+.sec{display:none;margin-top:12px}
+.box{background:color-mix(in oklab, var(--leaf-50) 50%, var(--card) 50%);border:1px solid var(--ring);padding:12px;border-radius:12px}
+.box ul,.box ol{margin:0 1.1rem}
+.tag{display:inline-block;padding:.28rem .7rem;border-radius:999px;background:var(--chip-bg);border:1px solid var(--chip-bd);color:var(--sub);font-size:.9rem}
+
+.math-inline,.math-block{direction:ltr;unicode-bidi:isolate}
+.math-block{display:block;margin:.35rem auto;text-align:center}
+
+h2.section{color:var(--h);margin:0 0 8px 0;font-weight:700;text-align:center}
+h3.sub{color:var(--sub);margin:10px 0 6px 0;font-weight:700}
+
+.table{width:100%;border-collapse:separate;border-spacing:0;overflow:hidden;border-radius:12px;border:1px solid var(--ring)}
+.table th,.table td{border-bottom:1px solid color-mix(in oklab, var(--ring) 70%, transparent 30%);padding:8px 10px;font-size:16px;text-align:center;vertical-align:middle}
+.table th{background:color-mix(in oklab, var(--leaf-50) 70%, var(--card) 30%);font-weight:700}
+.table tr:last-child td{border-bottom:none}
+.unit-cell{direction:ltr}
+
+.center{max-width:820px;margin:0 auto}
+.pill{display:inline-block;background:color-mix(in oklab, var(--leaf-50) 60%, var(--card) 40%);border:1px solid var(--ring);border-radius:999px;padding:.25rem .6rem;margin:.12rem .25rem}
+
+footer{margin-top:auto;text-align:center;color:var(--muted);padding:22px 0 54px}
+footer .brandline{display:flex;align-items:center;gap:8px;justify-content:center;margin-top:6px}
+footer .leaf-dots{width:18px;height:18px;border-radius:50%;background:var(--accent);
+  box-shadow:10px 0 0 0 var(--accent),20px 0 0 0 color-mix(in oklab, var(--accent) 82%, white 18%); margin-inline:8px}
+footer .quote{font-weight:700;color:var(--ink);font-size:clamp(15px,3.6vw,18px)}
+html.dark footer .quote{color:#e9fbea}
+footer .sig{margin-top:4px;color:var(--ink);font-size:clamp(14px,3.4vw,16px)}
+</style>
+
+<!-- MathJax -->
+<script>
+window.MathJax={tex:{inlineMath:[['$','$'],['\\(','\\)']],displayMath:[['$$','$$'],['\\[','\\]']],processEscapes:true,packages:{'[+]':['noerrors','noundefined']}}};
+</script>
+<script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
+</head>
+<body>
+<button class="theme-toggle" id="themeBtn">الوضع الداكن</button>
+
+<div class="wrap">
+  <header>
+    <!-- الدوائر أصبحت قبل الاسم -->
+    <div class="title">
+      <span class="logo-dot" aria-hidden="true"></span>
+      <h1>أنيس – فيزياء</h1>
+    </div>
+    <p class="subtitle">التميّز والنجاح يبدأ بخطوة.</p>
+  </header>
+
+  <section class="card pad" style="text-align:center;">
+    <div class="inputs">
+      <input id="concept" class="input" placeholder="أدخل القانون/المفهوم: قانون نيوتن الثاني، الجذب العام، السقوط الحر…"/>
+    </div>
+    <div class="toolbar">
+      <button class="btn" id="btnExplain">اشرح لي 📘</button>
+      <button class="btn" id="btnEx1">مثال تطبيقي 💡</button>
+      <button class="btn" id="btnEx2">مثال آخر 💡</button>
+      <button class="btn" id="btnPractice">اختبر فهمي 📝</button>
+      <button class="btn" id="btnSolve">الحل الصحيح 🔑</button>
+    </div>
+    <div id="status" class="status"></div>
+    <div id="error" class="err"></div>
+  </section>
+
+  <section id="secExplain" class="sec card pad" aria-live="polite">
+    <h2 id="exTitle" class="section"></h2>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin:-4px 0 10px;justify-content:center;">
+      <span class="tag">فيزياء</span><span id="chip2" class="tag"></span>
+    </div>
+    <div id="overview" class="box center" style="text-align:right;line-height:1.7;"></div>
+
+    <h3 class="sub" style="text-align:center">الصيغ</h3>
+    <div id="expFormulas" class="box center"></div>
+
+    <h3 class="sub" style="text-align:center">الرموز والوحدات</h3>
+    <div class="center">
+      <table class="table">
+        <thead><tr><th>الوصف</th><th>الرمز</th><th>الوحدة</th></tr></thead>
+        <tbody id="symbols"></tbody>
+      </table>
+    </div>
+
+    <h3 class="sub" style="text-align:center">خطوات الاستخدام/الحل</h3>
+    <ol id="steps" class="box center" style="text-align:right;line-height:1.7;"></ol>
+  </section>
+
+  <section id="secEx1" class="sec card pad"><h2 class="section">مثال تطبيقي</h2><div id="ex1" class="box"></div></section>
+  <section id="secEx2" class="sec card pad"><h2 class="section">مثال آخر</h2><div id="ex2" class="box"></div></section>
+  <section id="secPractice" class="sec card pad"><h2 class="section">اختبر فهمي</h2><div id="practice" class="box"></div></section>
+  <section id="secSolve" class="sec card pad"><h2 class="section">الحل الصحيح</h2><div id="solve" class="box"></div></section>
+
+  <footer>
+    <div class="brandline">
+      <span class="leaf-dots" aria-hidden="true"></span>
+      <span class="quote">لكلّ شيءٍ صعبٍ في حياتنا حلّ</span>
+    </div>
+    <div class="sig">ندى محمد المجيرش</div>
+  </footer>
+</div>
+
+<script>
+/* تنظيف الوحدات من \mathrm{} */
+function cleanUnits(s){
+  s=(s||'')+''; s=s.replace(/\\mathrm\s*\{([^}]+)\}/g,'$1'); s=s.replace(/^\s*\${1,2}|\${1,2}\s*$/g,'');
+  return s.trim();
+}
+(function(){
+  function cleanMath(s){ s=(s||'').replace(/\r/g,'\n').replace(/\n{3,}/g,'\n\n'); s=s.replace(/\\\\/g,'\\'); return s.trim(); }
+  function fixLatex(s){ s=cleanMath(s); s=s.replace(/(^|[^\\])\b(frac|sqrt|mathrm|cdot)\b/g,'$1\\$2'); return s; }
+  function htmlWithMath(input){
+    let s=fixLatex(input||''); const blocks=[], inlines=[];
+    s=s.replace(/\$\$([\s\S]*?)\$\$/g,(m,i)=>{blocks.push('$$'+i+'$$');return '§§B'+(blocks.length-1)+'§§';});
+    s=s.replace(/\$([^$]+)\$/g,(m,i)=>{inlines.push('$'+i+'$');return '§§I'+(inlines.length-1)+'§§';});
+    s=s.replace(/§§B(\d+)§§/g,(m,i)=>`<div class="math-block">${blocks[i]}</div>`)
+     .replace(/§§I(\d+)§§/g,(m,i)=>`<span class="math-inline">${inlines[i]}</span>`);
+    return s;
+  }
+  window.MATH={htmlWithMath};
+})();
+</script>
+
+<script>
+(function(){
+  const H=window.MATH.htmlWithMath;
+
+  function renderGivenUnknowns(givens=[], unknowns=[]){
+    const tbl=document.createElement('table'); tbl.className='table center';
+    tbl.innerHTML=`<thead><tr><th>الرمز</th><th>القيمة</th><th>الوحدة</th><th>الوصف</th></tr></thead>`;
+    const tb=document.createElement('tbody');
+    (givens||[]).forEach(g=>{
+      const tr=document.createElement('tr');
+      tr.innerHTML=`<td>${H(g.symbol||'')}</td><td>${H(g.value||'')}</td>
+        <td class="unit-cell">${H(cleanUnits(g.unit||''))}</td><td>${H(g.desc||'')}</td>`;
+      tb.appendChild(tr);
+    });
+    if((unknowns||[]).length){
+      const tr=document.createElement('tr'); const td=document.createElement('td'); td.colSpan=4; td.innerHTML='<span class="pill">المجاهيل</span>';
+      tr.appendChild(td); tb.appendChild(tr);
+      unknowns.forEach(u=>{
+        const r=document.createElement('tr');
+        r.innerHTML=`<td>${H(u.symbol||'')}</td><td>؟</td><td class="unit-cell">—</td><td>${H(u.desc||'')}</td>`;
+        tb.appendChild(r);
+      });
+    }
+    tbl.appendChild(tb); return tbl;
+  }
+
+  function renderFormulasBox(list=[]){
+    const box=document.createElement('div'); box.className='box center';
+    list.forEach(f=>{ const d=document.createElement('div'); d.className='math-block';
+      const eq=/^\$\$/.test(f)?f:`$$${(f||'').replace(/^\$|\$$/g,'')}$$`; d.innerHTML=H(eq); box.appendChild(d); });
+    return box;
+  }
+
+  function renderCase(containerId, data){
+    const root=document.getElementById(containerId); root.innerHTML=''; const frag=document.createDocumentFragment();
+
+    const s1=document.createElement('div');
+    s1.innerHTML=`<div class="sub">المسألة</div><div class="box">${H(data.scenario||data.question||'—')}</div>`;
+    frag.appendChild(s1);
+
+    const s2=document.createElement('div'); s2.className='sub'; s2.textContent='المعطيات والمجاهيل';
+    const b2=document.createElement('div'); b2.className='box'; b2.appendChild(renderGivenUnknowns(data.givens||[], data.unknowns||[]));
+    frag.appendChild(s2); frag.appendChild(b2);
+
+    const s3=document.createElement('div'); s3.className='sub'; s3.textContent='القانون/القوانين المستخدمة';
+    const b3=renderFormulasBox(data.formulas||(data.formula?[data.formula]:[]));
+    frag.appendChild(s3); frag.appendChild(b3);
+
+    const s4=document.createElement('div'); s4.className='sub'; s4.textContent='الحل والخطوات';
+    const b4=document.createElement('div'); b4.className='box';
+    const ol=document.createElement('ol');
+    (data.steps||[]).forEach(step=>{ const li=document.createElement('li'); li.innerHTML=H(step); ol.appendChild(li); });
+    if((data.steps||[]).length) b4.appendChild(ol);
+
+    if(data.result){
+      const hr=document.createElement('div'); hr.style.height='1px';
+      hr.style.background='color-mix(in oklab, var(--ring) 70%, transparent 30%)'; hr.style.margin='8px 0';
+      b4.appendChild(hr);
+      const big=document.createElement('div'); big.className='math-block';
+      const eq=/^\$\$/.test(data.result)?data.result:`$$${(data.result||'').replace(/^\$|\$$/g,'')}$$`;
+      big.innerHTML=H(eq); b4.appendChild(big);
+    }
+
+    frag.appendChild(s4); frag.appendChild(b4);
+    root.appendChild(frag);
+    if(window.MathJax?.typesetPromise) MathJax.typesetPromise();
+  }
+
+  function renderExplain(d,concept){
+    document.getElementById('exTitle').textContent=d.title||concept||'';
+    document.getElementById('chip2').textContent=concept||'';
+    document.getElementById('overview').innerHTML=H(d.overview||'—');
+
+    const expF=document.getElementById('expFormulas'); expF.innerHTML=''; expF.appendChild(renderFormulasBox(d.formulas||[]));
+
+    const tb=document.getElementById('symbols'); tb.innerHTML='';
+    (d.symbols||[]).forEach(s=>{
+      const tr=document.createElement('tr');
+      tr.innerHTML=`<td>${H(s.desc)}</td><td>${H(s.symbol)}</td><td class="unit-cell">${H(cleanUnits(s.unit))}</td>`;
+      tb.appendChild(tr);
+    });
+
+    const st=document.getElementById('steps'); st.innerHTML='';
+    (d.steps||[]).forEach(s=>{const li=document.createElement('li'); li.innerHTML=H(s); st.appendChild(li);});
+
+    document.getElementById('secExplain').style.display='block';
+    if(window.MathJax?.typesetPromise) MathJax.typesetPromise();
+  }
+
+  window.UI={renderCase, renderExplain, H};
+})();
+</script>
+
+<script>
+(function(){
+  const $=id=>document.getElementById(id);
+  const secs=['secExplain','secEx1','secEx2','secPractice','secSolve'];
+  function hideAll(){ secs.forEach(id=>$(id).style.display='none'); const e=$('error'); e.style.display='none'; e.textContent=''; }
+  function setBusy(t){ $('status').textContent=t||''; document.querySelectorAll('.btn').forEach(b=>b.disabled=!!t); }
+  function showErr(m){ const e=$('error'); e.style.display='block'; e.textContent=m||'حدث خطأ غير متوقع.'; }
+
+  // الثيم
+  const btnTheme=$('themeBtn');
+  function applyTheme(){
+    const dark=localStorage.getItem('theme')==='dark';
+    document.documentElement.classList.toggle('dark',dark);
+    btnTheme.textContent=dark?'الوضع الفاتح':'الوضع الداكن';
+  }
+  btnTheme.addEventListener('click',()=>{ const now=localStorage.getItem('theme')==='dark'?'light':'dark'; localStorage.setItem('theme',now); applyTheme(); });
+  applyTheme();
+
+  let LAST_PRACTICE_QUESTION='';
+  const actionMap={ explain:'explain', ex1:'example', ex2:'example2', practice:'practice', solve:'solve' };
+
+  async function call(action, extra){
+    const concept=($('concept').value||'').trim();
+    if(!concept){ showErr('أدخل اسم القانون/المفهوم أولًا.'); return null; }
+    setBusy({explain:'جارٍ توليد الشرح…',ex1:'جارٍ إنشاء المثال…',ex2:'جارٍ إنشاء المثال الآخر…',practice:'جارٍ إنشاء سؤال التدريب…',solve:'جارٍ الحل…'}[action]||'جارٍ العمل…');
+
+    try{
+      const res=await fetch('/.netlify/functions/anees',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({action:actionMap[action]||action,concept,question:(extra&&extra.question)||null})});
+
+      const txt=await res.text(); let json=null; try{ json=JSON.parse(txt); }catch(_){}
+      if(!res.ok){
+        const errMsg=(json&&json.error)?json.error:(txt.slice(0,300)||('HTTP '+res.status));
+        throw new Error(errMsg);
+      }
+      if(!json){ throw new Error('استجابة غير صالحة من الخادم.'); }
+      const payload=json.data||json; if(payload.error){ throw new Error(payload.error); }
+      return payload;
+
+    }catch(err){
+      showErr(err.message||'خطأ غير متوقع.'); return null;
+    }finally{ setBusy(''); }
+  }
+
+  $('btnExplain').addEventListener('click', async ()=>{ hideAll(); const d=await call('explain'); if(!d) return; UI.renderExplain(d,$('concept').value); });
+  $('btnEx1').addEventListener('click', async ()=>{ hideAll(); const d=await call('ex1'); if(!d) return; UI.renderCase('ex1',d); $('secEx1').style.display='block'; });
+  $('btnEx2').addEventListener('click', async ()=>{ hideAll(); const d=await call('ex2'); if(!d) return; UI.renderCase('ex2',d); $('secEx2').style.display='block'; });
+  $('btnPractice').addEventListener('click', async ()=>{ hideAll(); const d=await call('practice'); if(!d) return;
+    LAST_PRACTICE_QUESTION=d.question||''; $('practice').innerHTML=UI.H(LAST_PRACTICE_QUESTION||'—');
+    $('secPractice').style.display='block'; if(window.MathJax?.typesetPromise) MathJax.typesetPromise();
+  });
+  $('btnSolve').addEventListener('click', async ()=>{ hideAll();
+    if(!LAST_PRACTICE_QUESTION){ showErr('اعرضي أولاً سؤال "اختبر فهمي" ثم اضغطي "الحل الصحيح".'); return; }
+    const d=await call('solve',{question:LAST_PRACTICE_QUESTION}); if(!d) return;
+    UI.renderCase('solve',d); $('secSolve').style.display='block';
+  });
+})();
+</script>
+</body>
+</html>
