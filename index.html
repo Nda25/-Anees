@@ -5,9 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <title>أنيس – فيزياء</title>
 <link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&display=swap" rel="stylesheet"/>
-
 <style>
-/* ========== ألوان وثيم ========== */
 :root{
   --ink:#0d1b12; --muted:#5c6f62;
   --leaf-25:#eef7f1; --leaf-50:#e3f1e7; --leaf-100:#d6eadc;
@@ -16,25 +14,16 @@
   --radius:16px; --sub:#0e7a43; --h:#0e7a43;
   --chip-bg:#e7f7ec; --chip-bd:#c8e9d3;
   --error-bg:#fee2e2; --error-bd:#fecaca; --error-ink:#7f1d1d;
-  /* نقاط الشعار */
-  --dot:#1a7a3a;            /* الدائرة الأولى */
-  --dot2:#279a56;           /* الدائرة الثانية */
-  --dot3:#37b86e;           /* الدائرة الثالثة */
 }
 html.dark{
   --ink:#e8f4ed; --muted:#c6d6cc;
   --leaf-25:#0b1710; --leaf-50:#0d1c12; --leaf-100:#0f2216;
-  --accent:#8de0ac; --accent-2:#6bd094;
+  --accent:#5cb87d; /* تم تعديل هذا اللون ليظهر أوضح في الوضع الداكن */
+  --accent-2:#40a164; /* تم تعديل هذا اللون ليظهر أوضح في الوضع الداكن */
   --card:#0f1c14; --ring:#194a2d; --btn-shadow:rgba(109,208,148,.22);
   --sub:#9ce0b4; --h:#9ce0b4; --chip-bg:#143a23; --chip-bd:#19512f;
   --error-bg:#3a1010; --error-bd:#5b1a1a; --error-ink:#ffd7d7;
-  /* نقاط الشعار في الداكن — أغمق وواضحة */
-  --dot:#4bd489;
-  --dot2:#37b86e;
-  --dot3:#2a9b5b;
 }
-
-/* ========== أساسيات ========== */
 *{box-sizing:border-box} html,body{height:100%}
 body{
   margin:0;color:var(--ink);
@@ -57,29 +46,12 @@ body{
 .theme-toggle{position:fixed;top:14px;left:14px;z-index:5;background:var(--card);color:var(--ink);
   border:1px solid var(--ring);border-radius:999px;padding:6px 10px;cursor:pointer;font-size:14px}
 
-/* ========== الهيدر وشعار النقاط ========== */
 header{text-align:center;margin:6px 0 16px}
-header h1{
-  font-size:clamp(32px,5.5vw,54px);
-  margin:10px 0 6px;
-  font-weight:700;
-  letter-spacing:.2px;
-  color:var(--accent);
-  display:inline-flex;
-  align-items:center;
-  gap:18px;                 /* (التعديل) مسافة أكبر بين الدوائر والنص */
+header h1{font-size:clamp(32px,5.5vw,54px);margin:10px 0 6px;font-weight:700;letter-spacing:.2px;color:var(--accent);
+  display:inline-flex;align-items:center;gap:12px; /* تم تعديل المسافة بين العنوان والدوائر */
 }
-.logo-dots{
-  position:relative;
-  width:18px;height:18px;   /* حجم أنسب */
-  flex:0 0 18px;
-  border-radius:50%;
-  background:var(--dot);
-  /* (التعديل) إبعاد النقطتين بإزاحات أكبر */
-  box-shadow:
-    -26px 0 0 0 var(--dot2),  /* النقطة البعيدة يسار/يمين */
-     26px 0 0 0 var(--dot3);  /* النقطة البعيدة الأخرى */
-}
+.logo-dot{width:26px;height:26px;border-radius:50%;background:var(--accent);
+  box-shadow:12px 0 0 0 var(--accent),24px 0 0 0 color-mix(in oklab, var(--accent) 82%, white 18%)}
 header p{color:var(--muted);margin:4px 0 0;font-size:clamp(14px,2.4vw,18px)}
 
 .card{background:var(--card);border:1px solid var(--ring);border-radius:var(--radius);box-shadow:0 12px 30px rgba(0,0,0,.06)}
@@ -115,12 +87,10 @@ h3.sub{color:var(--sub);margin:10px 0 6px 0;font-weight:700}
 .center{max-width:820px;margin:0 auto}
 .pill{display:inline-block;background:color-mix(in oklab, var(--leaf-50) 60%, var(--card) 40%);border:1px solid var(--ring);border-radius:999px;padding:.25rem .6rem;margin:.12rem .25rem}
 
-/* ========== الفوتر مع الدوائر ========== */
 footer{margin-top:auto;text-align:center;color:var(--muted);padding:16px 0 40px}
-footer .brandline{display:flex;align-items:center;gap:12px;justify-content:center;margin-top:12px}
-footer .leaf-dots{width:16px;height:16px;border-radius:50%;flex:0 0 16px;background:var(--dot);
-  /* نفس نمط النقاط، لكن إزاحات أصغر لتبدو لطيفة تحت */
-  box-shadow:-20px 0 0 0 var(--dot2), 20px 0 0 0 var(--dot3)}
+footer .brandline{display:flex;align-items:center;gap:12px; /* تم تعديل المسافة بين النص والدوائر */ justify-content:center;margin-top:12px}
+footer .leaf-dots{width:18px;height:18px;border-radius:50%;background:var(--accent);
+  box-shadow:10px 0 0 0 var(--accent),20px 0 0 0 color-mix(in oklab, var(--accent) 82%, white 18%)}
 footer .quote{font-weight:700;color:var(--ink);font-size:clamp(15px,3.6vw,18px)}
 footer .sig{margin-top:4px;color:var(--ink);font-size:clamp(14px,3.4vw,16px)}
 </style>
