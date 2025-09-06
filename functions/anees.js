@@ -116,9 +116,6 @@ function buildPrompt(action, subject, concept, question){
   const EXAMPLE_SCHEMA =
     `{"scenario":"string","givens":[{"symbol":"string","value":"string","unit":"string","desc":"string"}],"unknowns":[{"symbol":"string","desc":"string"}],"formula":"string","steps":["string"],"result":"string"}`;
 
-  // مخطط سؤال تدريب
-  const PRACTICE_SCHEMA = `{"question":"string"}`;
-
   if (action === "explain"){
     return `${BASE}
 أعيدي JSON يطابق هذا المخطط: ${EXPLAIN_SCHEMA}
@@ -131,18 +128,24 @@ function buildPrompt(action, subject, concept, question){
 أعيدي JSON يطابق هذا المخطط: ${EXAMPLE_SCHEMA}
 المستوى: متوسط. اختاري مجهولاً مناسبًا واحدًا.
 استخدمي قيمًا عددية منطقية بوحداتها، وتجنّبي الأرقام التافهة.
-اكتبي خطوات الحل كنص عربي، وأي معادلة داخل الخطوة بصيغة LaTeX بين $...$.`;
+اكتبي خطوات الحل كنص عربي، وأي معادلة داخل الخطوة بصيغة LaTeX بين $...$.
+- المجهول المطلوب يجب أن يكون شائعاً ومناسباً للمبتدئين (مثال: القوة، السرعة، الزمن).`;
   }
 
   if (action === "example2"){
     return `${BASE}
 أعيدي JSON يطابق هذا المخطط: ${EXAMPLE_SCHEMA}
 المستوى: فوق المتوسط بدرجة واحدة (خطوتان أو ثلاث خطوات اعتماد/اشتقاق).
-اختاري مجهولًا مختلفًا عن المثال الشائع لنفس المفهوم (غيّري المتغير المطلوب).
-أكّدي أن القانون/المعادلات كلها تخص «${concept}» تحديدًا.`;
+- المجهول يجب أن يكون مختلفًا تماماً عن المجهول في المثال الأول.
+- أكدي أن القانون/المعادلات كلها تخص «${concept}» تحديدًا.
+- مثالي التنسيق للمجهول المختلف:
+  - إذا كان المثال الأول يطلب $F$، اطلبي $m$ أو $a$.
+  - إذا كان المثال الأول يطلب $m$، اطلبي $F$ أو $a$.
+  - إذا كان المثال الأول يطلب $a$، اطلبي $F$ أو $m$.`;
   }
 
   if (action === "practice"){
+    const PRACTICE_SCHEMA = `{"question":"string"}`;
     return `${BASE}
 أعيدي JSON يطابق هذا المخطط: ${PRACTICE_SCHEMA}
 اشرحي سؤال تدريب بالعربية فقط، من 2 إلى 3 جُمل، بمستوى صعوبة "متوسط".
@@ -152,8 +155,9 @@ function buildPrompt(action, subject, concept, question){
 
   if (action === "solve"){
     return `${BASE}
-حلّي المسألة التالية وأعيدي JSON يطابق مخطط المثال: ${EXAMPLE_SCHEMA}
+حلّي المسألة التالية بالتفصيل. املأي الحقول ببيانات الحل.
 السؤال: ${question}
+المخطط: ${EXAMPLE_SCHEMA}
 - اجعلي "givens" و"unknowns" منظمة وواضحة.
 - أظهري في "steps" الاشتقاقات بصيغة LaTeX داخل $...$ أو $$...$$.
 - النتيجة النهائية في "result" بصيغة LaTeX بوحدة صحيحة.`;
