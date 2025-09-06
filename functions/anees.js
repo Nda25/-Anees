@@ -116,12 +116,14 @@ function buildPrompt(action, subject, concept, question){
   const EXAMPLE_SCHEMA =
     `{"scenario":"string","givens":[{"symbol":"string","value":"string","unit":"string","desc":"string"}],"unknowns":[{"symbol":"string","desc":"string"}],"formula":"string","steps":["string"],"result":"string"}`;
 
+  // مخطط سؤال تدريب
+  const PRACTICE_SCHEMA = `{"question":"string"}`;
+
   if (action === "explain"){
     return `${BASE}
 أعيدي JSON يطابق هذا المخطط: ${EXPLAIN_SCHEMA}
 - اجعلي "formulas" تحتوي صيغ LaTeX صحيحة ومتصلة بالمفهوم فقط.
-- اجعلي "symbols" مختصرة دقيقة (الوصف بالعربي، الرمز مثل F أو m_1، والوحدة داخل \\mathrm{...}).
-- اجعلي "steps" قائمة بنقاط منفصلة (كل نقطة خطوة منفصلة).`;
+- اجعلي "symbols" مختصرة دقيقة (الوصف بالعربي، الرمز مثل F أو m_1، والوحدة داخل \\mathrm{...}).`;
   }
 
   if (action === "example"){
@@ -129,25 +131,18 @@ function buildPrompt(action, subject, concept, question){
 أعيدي JSON يطابق هذا المخطط: ${EXAMPLE_SCHEMA}
 المستوى: متوسط. اختاري مجهولاً مناسبًا واحدًا.
 استخدمي قيمًا عددية منطقية بوحداتها، وتجنّبي الأرقام التافهة.
-- اكتبي خطوات الحل كنص عربي، وأي معادلة داخل الخطوة بصيغة LaTeX بين $...$.
-- اجعلي كل خطوة في عنصر منفصل داخل مصفوفة "steps".`;
+اكتبي خطوات الحل كنص عربي، وأي معادلة داخل الخطوة بصيغة LaTeX بين $...$.`;
   }
 
   if (action === "example2"){
     return `${BASE}
 أعيدي JSON يطابق هذا المخطط: ${EXAMPLE_SCHEMA}
 المستوى: فوق المتوسط بدرجة واحدة (خطوتان أو ثلاث خطوات اعتماد/اشتقاق).
-- المجهول يجب أن يكون مختلفًا تماماً عن المجهول في المثال الأول.
-- أكدي أن القانون/المعادلات كلها تخص «${concept}» تحديدًا.
-- مثالي التنسيق للمجهول المختلف:
-  - إذا كان المثال الأول يطلب $F$، اطلبي $m$ أو $a$.
-  - إذا كان المثال الأول يطلب $m$، اطلبي $F$ أو $a$.
-  - إذا كان المثال الأول يطلب $a$، اطلبي $F$ أو $m$.
-- اجعلي كل خطوة في عنصر منفصل داخل مصفوفة "steps".`;
+اختاري مجهولًا مختلفًا عن المثال الشائع لنفس المفهوم (غيّري المتغير المطلوب).
+أكّدي أن القانون/المعادلات كلها تخص «${concept}» تحديدًا.`;
   }
 
   if (action === "practice"){
-    const PRACTICE_SCHEMA = `{"question":"string"}`;
     return `${BASE}
 أعيدي JSON يطابق هذا المخطط: ${PRACTICE_SCHEMA}
 اشرحي سؤال تدريب بالعربية فقط، من 2 إلى 3 جُمل، بمستوى صعوبة "متوسط".
@@ -157,13 +152,11 @@ function buildPrompt(action, subject, concept, question){
 
   if (action === "solve"){
     return `${BASE}
-حلّي المسألة التالية بالتفصيل. املأي الحقول ببيانات الحل.
+حلّي المسألة التالية وأعيدي JSON يطابق مخطط المثال: ${EXAMPLE_SCHEMA}
 السؤال: ${question}
-المخطط: ${EXAMPLE_SCHEMA}
 - اجعلي "givens" و"unknowns" منظمة وواضحة.
 - أظهري في "steps" الاشتقاقات بصيغة LaTeX داخل $...$ أو $$...$$.
-- النتيجة النهائية في "result" بصيغة LaTeX بوحدة صحيحة.
-- اجعلي كل خطوة في عنصر منفصل داخل مصفوفة "steps".`;
+- النتيجة النهائية في "result" بصيغة LaTeX بوحدة صحيحة.`;
   }
 
   return `${BASE}{"error":"unknown action"}`;
