@@ -4,7 +4,6 @@
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <title>أنيس – فيزياء</title>
-
 <link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&display=swap" rel="stylesheet"/>
 
 <style>
@@ -18,7 +17,7 @@
   --error-bg:#fee2e2; --error-bd:#fecaca; --error-ink:#7f1d1d;
 }
 html.dark{
-  --ink:#e8f4ed; --muted:#c6d6cc;
+  --ink:#e8f4ed; --muted:#d0ddd5;
   --leaf-25:#0b1710; --leaf-50:#0d1c12; --leaf-100:#0f2216;
   --accent:#5cb87d; --accent-2:#40a164;
   --card:#0f1c14; --ring:#194a2d; --btn-shadow:rgba(109,208,148,.22);
@@ -36,22 +35,21 @@ body{
     linear-gradient(180deg, #fff, var(--leaf-25) 85%);
   overflow-x:hidden;
 }
-
-/* طبقة زخرفية متحركة (أوراق/دوائر) */
+/* خلفية حيّة أوضح */
 body::before, body::after{
   content:""; position:fixed; inset:0; z-index:-1; pointer-events:none;
   background:
-    radial-gradient(circle 42px at 20% 22%, rgba(27,125,59,.08) 0%, transparent 70%),
-    radial-gradient(circle 76px at 78% 28%, rgba(27,125,59,.09) 0%, transparent 70%),
-    radial-gradient(circle 58px at 42% 82%, rgba(27,125,59,.07) 0%, transparent 70%),
-    radial-gradient(40px 26px at 10% 70%, rgba(27,125,59,.09) 0%, transparent 70%),
-    radial-gradient(60px 38px at 92% 80%, rgba(27,125,59,.07) 0%, transparent 70%);
+    radial-gradient(circle 52px at 22% 20%, rgba(27,125,59,.14) 0%, transparent 70%),
+    radial-gradient(60px 36px at 82% 24%, rgba(27,125,59,.12) 0%, transparent 70%),
+    radial-gradient(80px 50px at 45% 78%, rgba(27,125,59,.12) 0%, transparent 70%),
+    radial-gradient(46px 28px at 12% 68%, rgba(27,125,59,.12) 0%, transparent 70%),
+    radial-gradient(66px 40px at 90% 82%, rgba(27,125,59,.10) 0%, transparent 70%);
   animation:floaty 18s infinite alternate ease-in-out;
+  opacity:.95;               /* أوضح من قبل */
 }
 body::after{
-  filter:blur(1px) opacity(.7);
-  animation-duration:26s;
-  animation-delay:-6s;
+  opacity:.85;               /* ظل خفيف ثاني الطبقات */
+  animation-duration:26s; animation-delay:-6s;
 }
 @keyframes floaty{
   from{ transform:translateY(0) }
@@ -64,30 +62,34 @@ body::after{
 
 header{text-align:center;margin:6px 0 16px}
 header h1{
-  font-size:clamp(32px,5.5vw,54px);margin:10px 0 6px;font-weight:700;letter-spacing:.2px;color:var(--accent);
+  font-size:clamp(32px,5.5vw,54px);margin:10px 0 4px;font-weight:700;letter-spacing:.2px;color:var(--accent);
   display:inline-flex;align-items:center;gap:12px
 }
 .logo-dot{width:26px;height:26px;border-radius:50%;background:var(--accent);
   box-shadow:12px 0 0 0 var(--accent),24px 0 0 0 color-mix(in oklab, var(--accent) 82%, white 18%)}
 
-/* العبارة التحفيزية */
+/* العبارة التحفيزية — مثبتة تحت الاسم */
 header p.subtitle{
-  color:var(--muted);margin:6px 0 0;font-size:clamp(14px,2.4vw,18px)
+  display:block;             /* يمنع وقوفها بجانب العنوان */
+  color:var(--muted);
+  margin:6px auto 0;
+  font-size:clamp(14px,2.4vw,18px);
 }
-/* أوضح في الداكن + تبقى تحت العنوان */
+/* أوضح في الدارك وتظل تحت الاسم */
 html.dark header p.subtitle{
+  display:block;
   color:#e9fbea;
   text-shadow:0 1px 0 rgba(0,0,0,.7), 0 0 6px rgba(0,0,0,.25);
   background:linear-gradient(180deg, rgba(0,0,0,.22), rgba(0,0,0,.18));
-  display:inline-block; padding:4px 10px; border-radius:12px;
+  padding:4px 10px; border-radius:12px;
   border:1px solid rgba(255,255,255,.06);
+  width:max-content; margin:6px auto 0;
 }
 
-.card{background:var(--card);border:1px solid var(--ring);border-radius:var(--radius);box-shadow:0 12px 30px rgba(0,0,0,.06)}
+.card{background:var(--card);border:1px solid var(--ring);border-radius:16px;box-shadow:0 12px 30px rgba(0,0,0,.06)}
 .pad{padding:14px}
 .inputs{display:flex;gap:12px;flex-wrap:wrap;justify-content:center}
 .input{width:min(560px,100%);padding:10px;border-radius:8px;border:1px solid var(--ring);font-size:18px;background:transparent;color:var(--ink)}
-
 .toolbar{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-top:10px}
 .btn{
   background:linear-gradient(180deg,var(--accent),var(--accent-2));
@@ -120,10 +122,12 @@ h3.sub{color:var(--sub);margin:10px 0 6px 0;font-weight:700}
 .pill{display:inline-block;background:color-mix(in oklab, var(--leaf-50) 60%, var(--card) 40%);border:1px solid var(--ring);border-radius:999px;padding:.25rem .6rem;margin:.12rem .25rem}
 
 footer{margin-top:auto;text-align:center;color:var(--muted);padding:16px 0 40px}
-footer .brandline{display:flex;align-items:center;gap:14px;justify-content:center;margin-top:12px}
-footer .leaf-dots{width:18px;height:18px;border-radius:50%;background:var(--accent);
+footer .brandline{display:flex;align-items:center;gap:10px;justify-content:center;margin-top:12px}
+footer .leaf-dots{
+  width:18px;height:18px;border-radius:50%;background:var(--accent);
   box-shadow:10px 0 0 0 var(--accent),20px 0 0 0 color-mix(in oklab, var(--accent) 82%, white 18%);
-  margin-inline:4px;} /* مسافة بسيطة حتى لا تلتصق بالكلمات */
+  margin-inline:6px;          /* مسافة صغيرة حتى لا تلتصق بالنص */
+}
 footer .quote{font-weight:700;color:var(--ink);font-size:clamp(15px,3.6vw,18px)}
 footer .sig{margin-top:4px;color:var(--ink);font-size:clamp(14px,3.4vw,16px)}
 </style>
@@ -185,18 +189,16 @@ footer .sig{margin-top:4px;color:var(--ink);font-size:clamp(14px,3.4vw,16px)}
     <div class="brandline">
       <span class="leaf-dots" aria-hidden="true"></span>
       <span class="quote">لكلّ شيءٍ صعبٍ في حياتنا حلّ</span>
-      <span class="leaf-dots" aria-hidden="true"></span>
+      <!-- تم حذف الدوائر بعد الجملة بناءً على طلبك -->
     </div>
     <div class="sig">ندى محمد المجيرش</div>
   </footer>
 </div>
 
-<!-- ====== Helpers (رياضيات/وحدات) ====== -->
+<!-- ===== Helpers (رياضيات/وحدات) ===== -->
 <script>
 function cleanUnits(s){
-  s=(s||'')+'';                     /* \mathrm{...} -> ...  و إزالة $ */
-  s=s.replace(/\\mathrm\s*\{([^}]+)\}/g,'$1');
-  s=s.replace(/^\s*\${1,2}|\${1,2}\s*$/g,'');
+  s=(s||'')+''; s=s.replace(/\\mathrm\s*\{([^}]+)\}/g,'$1'); s=s.replace(/^\s*\${1,2}|\${1,2}\s*$/g,'');
   return s.trim();
 }
 (function(){
@@ -216,7 +218,7 @@ function cleanUnits(s){
 })();
 </script>
 
-<!-- ====== العرض ====== -->
+<!-- ===== عرض النتائج ===== -->
 <script>
 (function(){
   const H=window.MATH.htmlWithMath;
@@ -316,7 +318,7 @@ function cleanUnits(s){
 })();
 </script>
 
-<!-- ====== التحكم بالأزرار + الثيم + الاتصال بالدالة ====== -->
+<!-- ===== الأزرار + الثيم + الاتصال بالدالة ===== -->
 <script>
 (function(){
   const $=id=>document.getElementById(id);
