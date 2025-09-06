@@ -10,7 +10,7 @@
 :root{
   --ink:#0d1b12; --muted:#5c6f62;
   --leaf-25:#eef7f1; --leaf-50:#e3f1e7; --leaf-100:#d6eadc;
-  --accent:#1b7d3b; --accent-2:#27a158;
+  --accent:#1b7d3b; --accent-2:#27a158;         /* أخضر عنوان */
   --card:#fff; --ring:#bfe6c9; --btn-shadow:rgba(39,161,88,.25);
   --radius:16px; --sub:#0e7a43; --h:#0e7a43;
   --chip-bg:#e7f7ec; --chip-bd:#c8e9d3;
@@ -19,7 +19,7 @@
 html.dark{
   --ink:#e9fbea; --muted:#cfead7;
   --leaf-25:#0b1710; --leaf-50:#0d1c12; --leaf-100:#0f2216;
-  --accent:#2a9a56; --accent-2:#1f7f47;
+  --accent:#2a9a56; --accent-2:#1f7f47;         /* أخضر غامق في الداكن */
   --card:#0f1c14; --ring:#194a2d; --btn-shadow:rgba(109,208,148,.22);
   --sub:#9ce0b4; --h:#9ce0b4;
   --chip-bg:#143a23; --chip-bd:#19512f;
@@ -135,9 +135,8 @@ window.MathJax={tex:{inlineMath:[['$','$'],['\\(','\\)']],displayMath:[['$$','$$
 <button class="theme-toggle" id="themeBtn">الوضع الداكن</button>
 
 <div class="wrap">
-  <header>
+  <header>
     <div style="display:inline-flex;align-items:center;gap:12px;">
-      <span class="logo-dot" aria-hidden="true"></span>
       <h1>أنيس – فيزياء</h1>
       <span class="logo-dot" aria-hidden="true"></span>
     </div>
@@ -196,7 +195,6 @@ window.MathJax={tex:{inlineMath:[['$','$'],['\\(','\\)']],displayMath:[['$$','$$
 </div>
 
 <script>
-/* Helpers: تنظيف/معالجة البيانات قبل العرض */
 function cleanUnits(s){
   s=(s||'')+''; s=s.replace(/\\mathrm\s*\{([^}]+)\}/g,'$1'); s=s.replace(/^\s*\${1,2}|\${1,2}\s*$/g,'');
   return s.trim();
