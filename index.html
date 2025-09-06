@@ -4,11 +4,10 @@
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <title>أنيس – فيزياء</title>
-
-<!-- خط أميري -->
 <link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&display=swap" rel="stylesheet"/>
 
 <style>
+/* ========== ألوان وثيم ========== */
 :root{
   --ink:#0d1b12; --muted:#5c6f62;
   --leaf-25:#eef7f1; --leaf-50:#e3f1e7; --leaf-100:#d6eadc;
@@ -17,6 +16,10 @@
   --radius:16px; --sub:#0e7a43; --h:#0e7a43;
   --chip-bg:#e7f7ec; --chip-bd:#c8e9d3;
   --error-bg:#fee2e2; --error-bd:#fecaca; --error-ink:#7f1d1d;
+  /* نقاط الشعار */
+  --dot:#1a7a3a;            /* الدائرة الأولى */
+  --dot2:#279a56;           /* الدائرة الثانية */
+  --dot3:#37b86e;           /* الدائرة الثالثة */
 }
 html.dark{
   --ink:#e8f4ed; --muted:#c6d6cc;
@@ -25,7 +28,13 @@ html.dark{
   --card:#0f1c14; --ring:#194a2d; --btn-shadow:rgba(109,208,148,.22);
   --sub:#9ce0b4; --h:#9ce0b4; --chip-bg:#143a23; --chip-bd:#19512f;
   --error-bg:#3a1010; --error-bd:#5b1a1a; --error-ink:#ffd7d7;
+  /* نقاط الشعار في الداكن — أغمق وواضحة */
+  --dot:#4bd489;
+  --dot2:#37b86e;
+  --dot3:#2a9b5b;
 }
+
+/* ========== أساسيات ========== */
 *{box-sizing:border-box} html,body{height:100%}
 body{
   margin:0;color:var(--ink);
@@ -48,6 +57,7 @@ body{
 .theme-toggle{position:fixed;top:14px;left:14px;z-index:5;background:var(--card);color:var(--ink);
   border:1px solid var(--ring);border-radius:999px;padding:6px 10px;cursor:pointer;font-size:14px}
 
+/* ========== الهيدر وشعار النقاط ========== */
 header{text-align:center;margin:6px 0 16px}
 header h1{
   font-size:clamp(32px,5.5vw,54px);
@@ -55,11 +65,20 @@ header h1{
   font-weight:700;
   letter-spacing:.2px;
   color:var(--accent);
-  display:inline-flex;align-items:center;gap:12px
+  display:inline-flex;
+  align-items:center;
+  gap:18px;                 /* (التعديل) مسافة أكبر بين الدوائر والنص */
 }
-.logo-dot{
-  width:26px;height:26px;border-radius:50%;background:var(--accent);
-  box-shadow:12px 0 0 0 var(--accent),24px 0 0 0 color-mix(in oklab, var(--accent) 82%, white 18%)
+.logo-dots{
+  position:relative;
+  width:18px;height:18px;   /* حجم أنسب */
+  flex:0 0 18px;
+  border-radius:50%;
+  background:var(--dot);
+  /* (التعديل) إبعاد النقطتين بإزاحات أكبر */
+  box-shadow:
+    -26px 0 0 0 var(--dot2),  /* النقطة البعيدة يسار/يمين */
+     26px 0 0 0 var(--dot3);  /* النقطة البعيدة الأخرى */
 }
 header p{color:var(--muted);margin:4px 0 0;font-size:clamp(14px,2.4vw,18px)}
 
@@ -69,11 +88,8 @@ header p{color:var(--muted);margin:4px 0 0;font-size:clamp(14px,2.4vw,18px)}
 .input{width:min(560px,100%);padding:10px;border-radius:8px;border:1px solid var(--ring);font-size:18px;background:transparent;color:var(--ink)}
 
 .toolbar{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-top:10px}
-.btn{
-  background:linear-gradient(180deg,var(--accent),var(--accent-2));
-  color:#fff;border:none;padding:10px 14px;border-radius:12px;
-  font-weight:700;cursor:pointer;box-shadow:0 10px 20px var(--btn-shadow);font-size:16px
-}
+.btn{background:linear-gradient(180deg,var(--accent),var(--accent-2));color:#fff;border:none;padding:10px 14px;border-radius:12px;
+  font-weight:700;cursor:pointer;box-shadow:0 10px 20px var(--btn-shadow);font-size:16px}
 .btn:disabled{opacity:.6;cursor:not-allowed}
 
 .status{color:var(--muted);font-size:.95rem;text-align:center;min-height:1.2em}
@@ -99,38 +115,24 @@ h3.sub{color:var(--sub);margin:10px 0 6px 0;font-weight:700}
 .center{max-width:820px;margin:0 auto}
 .pill{display:inline-block;background:color-mix(in oklab, var(--leaf-50) 60%, var(--card) 40%);border:1px solid var(--ring);border-radius:999px;padding:.25rem .6rem;margin:.12rem .25rem}
 
+/* ========== الفوتر مع الدوائر ========== */
 footer{margin-top:auto;text-align:center;color:var(--muted);padding:16px 0 40px}
-footer .brandline{display:flex;align-items:center;gap:10px;justify-content:center;margin-top:12px}
-footer .leaf-dots{width:18px;height:18px;border-radius:50%;background:var(--accent);
-  box-shadow:10px 0 0 0 var(--accent),20px 0 0 0 color-mix(in oklab, var(--accent) 82%, white 18%)}
+footer .brandline{display:flex;align-items:center;gap:12px;justify-content:center;margin-top:12px}
+footer .leaf-dots{width:16px;height:16px;border-radius:50%;flex:0 0 16px;background:var(--dot);
+  /* نفس نمط النقاط، لكن إزاحات أصغر لتبدو لطيفة تحت */
+  box-shadow:-20px 0 0 0 var(--dot2), 20px 0 0 0 var(--dot3)}
 footer .quote{font-weight:700;color:var(--ink);font-size:clamp(15px,3.6vw,18px)}
 footer .sig{margin-top:4px;color:var(--ink);font-size:clamp(14px,3.4vw,16px)}
 </style>
-
-<!-- MathJax -->
-<script>
-window.MathJax={tex:{
-  inlineMath:[['$','$'],['\\(','\\)']],
-  displayMath:[['$$','$$'],['\\[','\\]']],
-  processEscapes:true,
-  packages:{'[+]':['noerrors','noundefined']}
-}};
-</script>
-<script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
 </head>
 <body>
+<button id="themeBtn" class="theme-toggle">الوضع الداكن</button>
+
 <div class="wrap">
-
-  <!-- زر الوضع الداكن -->
-  <button id="themeBtn" class="theme-toggle">الوضع الداكن</button>
-
   <header>
-    <h1>
-      <span class="logo-dot" aria-hidden="true"></span>
-      أنيس – فيزياء
-      <span class="logo-dot" aria-hidden="true"></span>
-    </h1>
-    <p>التَّميُّز والنجاح يبدأ بخطوة.</p>
+    <!-- (التعديل) أضفت مسافة أكبر وشدّدت ألوان النقاط وتباعدها -->
+    <h1><span class="logo-dots" aria-hidden="true"></span> أنيس – فيزياء</h1>
+    <p>التَّميُّز والنجاح يبدأ بخُطوة.</p>
   </header>
 
   <section class="card pad" style="text-align:center;">
@@ -163,41 +165,44 @@ window.MathJax={tex:{
     <div class="center">
       <table id="symbolsTbl" class="table">
         <thead>
-          <tr>
-            <th>الوصف</th>
-            <th>الرمز</th>
-            <th>الوحدة</th>
-          </tr>
+          <tr><th>الوصف</th><th>الرمز</th><th>الوحدة</th></tr>
         </thead>
         <tbody id="symbols"></tbody>
       </table>
     </div>
 
-    <h3 class="sub" style="text-align:center">خطوات الحل</h3>
+    <h3 class="sub" style="text-align:center">خطوات الاستخدام/الحل</h3>
     <ol id="steps" class="box center" style="text-align:right;line-height:1.7;"></ol>
   </section>
 
-  <!-- مثال/مثال آخر/سؤال/حل -->
+  <!-- الأقسام -->
   <section id="secEx1" class="sec card pad"><h2 class="section">مثال تطبيقي</h2><div id="ex1" class="box"></div></section>
   <section id="secEx2" class="sec card pad"><h2 class="section">مثال آخر</h2><div id="ex2" class="box"></div></section>
   <section id="secPractice" class="sec card pad"><h2 class="section">اختبر فهمي</h2><div id="practice" class="box"></div></section>
-  <section id="secSolve" class="sec card pad">
-    <h2 class="section">الحل الصحيح</h2>
-    <div id="solve" class="box"></div>
-  </section>
+  <section id="secSolve" class="sec card pad"><h2 class="section">الحل الصحيح</h2><div id="solve" class="box"></div></section>
 
-  <!-- التوقيع مثبت أسفل كل الصفحات -->
   <footer>
     <div class="brandline">
       <span class="leaf-dots" aria-hidden="true"></span>
-      <span class="quote">لكلِّ شيءٍ صعبٍ في حياتنا حل ✨✨</span>
+      <span class="quote">لكلِّ شيءٍ صعبٍ في حياتنا حل ✨🌿</span>
       <span class="leaf-dots" aria-hidden="true"></span>
     </div>
     <div class="sig">ندى محمد المجيرش</div>
   </footer>
 </div>
 
-<!-- ====== أدوات رياضية بسيطة ====== -->
+<!-- MathJax -->
+<script>
+window.MathJax={tex:{
+  inlineMath:[['$','$'],['\\(','\\)']],
+  displayMath:[['$$','$$'],['\\[','\\]']],
+  processEscapes:true,
+  packages:{'[+]':['noerrors','noundefined']}
+}};
+</script>
+<script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
+
+<!-- أدوات العرض (كما هي) -->
 <script>
 function cleanUnits(s){
   s=(s||'')+''; s=s.replace(/\\mathrm\s*\{([^}]+)\}/g,'$1'); s=s.replace(/^\s*\${1,2}|\${1,2}\s*$/g,'');
@@ -220,7 +225,6 @@ function cleanUnits(s){
 })();
 </script>
 
-<!-- ====== العرض الموحد ====== -->
 <script>
 (function(){
   const H=window.MATH.htmlWithMath;
@@ -231,19 +235,16 @@ function cleanUnits(s){
       const eq=/^\$\$/.test(f)?f:`$$${(f||'').replace(/^\$|\$$/g,'')}$$`; d.innerHTML=H(eq); box.appendChild(d); });
     return box;
   }
-
   function renderGivenUnknowns(givens=[], unknowns=[]){
     const tbl=document.createElement('table'); tbl.className='table center';
     tbl.innerHTML=`<thead><tr><th>الرمز</th><th>القيمة</th><th>الوحدة</th><th>الوصف</th></tr></thead>`;
     const tb=document.createElement('tbody');
-
     (givens||[]).forEach(g=>{
       const tr=document.createElement('tr');
       tr.innerHTML=`<td>${H(g.symbol||'')}</td><td>${H(g.value||'')}</td>
         <td class="unit-cell">${cleanUnits(g.unit||'')}</td><td>${H(g.desc||'')}</td>`;
       tb.appendChild(tr);
     });
-
     if((unknowns||[]).length){
       const tr=document.createElement('tr'); const td=document.createElement('td'); td.colSpan=4; td.innerHTML='<span class="pill">المجاهيل</span>';
       tr.appendChild(td); tb.appendChild(tr);
@@ -255,77 +256,51 @@ function cleanUnits(s){
     }
     tbl.appendChild(tb); return tbl;
   }
-
   function renderCase(containerId, data){
-    const root=document.getElementById(containerId); root.innerHTML='';
-    const frag=document.createDocumentFragment();
-
-    const s1=document.createElement('div');
-    s1.innerHTML=`<div class="sub">المسألة</div><div class="box">${H(data.scenario||data.question||'—')}</div>`;
-    frag.appendChild(s1);
-
+    const root=document.getElementById(containerId); root.innerHTML=''; const frag=document.createDocumentFragment();
+    const s1=document.createElement('div'); s1.innerHTML=`<div class="sub">المسألة</div><div class="box">${H(data.scenario||data.question||'—')}</div>`; frag.appendChild(s1);
     const s2=document.createElement('div'); s2.className='sub'; s2.textContent='المعطيات والمجاهيل';
-    const b2=document.createElement('div'); b2.className='box';
-    b2.appendChild(renderGivenUnknowns(data.givens||[], data.unknowns||[]));
-    frag.appendChild(s2); frag.appendChild(b2);
-
+    const b2=document.createElement('div'); b2.className='box'; b2.appendChild(renderGivenUnknowns(data.givens||[], data.unknowns||[])); frag.appendChild(s2); frag.appendChild(b2);
     const s3=document.createElement('div'); s3.className='sub'; s3.textContent='القانون/القوانين المستخدمة';
-    const b3=renderFormulasBox(data.formulas||(data.formula?[data.formula]:[]));
-    frag.appendChild(s3); frag.appendChild(b3);
-
+    const b3=renderFormulasBox(data.formulas||(data.formula?[data.formula]:[])); frag.appendChild(s3); frag.appendChild(b3);
     const s4=document.createElement('div'); s4.className='sub'; s4.textContent='الحل والخطوات';
-    const b4=document.createElement('div'); b4.className='box';
-    const ol=document.createElement('ol');
+    const b4=document.createElement('div'); b4.className='box'; const ol=document.createElement('ol');
     (data.steps||[]).forEach(step=>{ const li=document.createElement('li'); li.innerHTML=H(step); ol.appendChild(li); });
     if((data.steps||[]).length) b4.appendChild(ol);
-
-    if(data.result){
-      const hr=document.createElement('div'); hr.style.height='1px'; hr.style.background='color-mix(in oklab, var(--ring) 70%, transparent 30%)'; hr.style.margin='8px 0';
-      b4.appendChild(hr);
-      const big=document.createElement('div'); big.className='math-block';
-      const eq=/^\$\$/.test(data.result)?data.result:`$$${data.result.replace(/^\$|\$$/g,'')}$$`;
-      big.innerHTML=H(eq); b4.appendChild(big);
-    }
-    frag.appendChild(s4); frag.appendChild(b4);
-
-    root.appendChild(frag);
-    if(window.MathJax?.typesetPromise) MathJax.typesetPromise();
+    if(data.result){ const hr=document.createElement('div'); hr.style.height='1px'; hr.style.background='color-mix(in oklab, var(--ring) 70%, transparent 30%)'; hr.style.margin='8px 0';
+      b4.appendChild(hr); const big=document.createElement('div'); big.className='math-block';
+      const eq=/^\$\$/.test(data.result)?data.result:`$$${data.result.replace(/^\$|\$$/g,'')}$$`; big.innerHTML=H(eq); b4.appendChild(big); }
+    frag.appendChild(s4); frag.appendChild(b4); root.appendChild(frag); if(window.MathJax?.typesetPromise) MathJax.typesetPromise();
   }
-
-  function parseSymbolRow(s){
-    if(typeof s==='object'&&s) return s;
-    const m=(s||'').match(/الوصف\s*=\s*(.*?),\s*الرمز\s*=\s*(.*?),\s*الوحدة\s*=\s*(.*)\s*$/);
-    return m?{desc:m[1].trim(),symbol:m[2].trim(),unit:m[3].trim()}:{desc:s||'—',symbol:'—',unit:'—'};
-  }
-
   function renderExplain(d,concept){
-    document.getElementById('exTitle').textContent=d.title||concept||'';
-    document.getElementById('chip2').textContent=concept||'';
+    document.getElementById('exTitle').textContent=d.title||concept||''; document.getElementById('chip2').textContent=concept||'';
     document.getElementById('overview').innerHTML=H(d.overview||'—');
-
-    const expF=document.getElementById('expFormulas'); expF.innerHTML='';
-    expF.appendChild(renderFormulasBox(d.formulas||[]));
-
+    const expF=document.getElementById('expFormulas'); expF.innerHTML=''; expF.appendChild(renderFormulasBox(d.formulas||[]));
     const tb=document.getElementById('symbols'); tb.innerHTML='';
-    (d.symbols||[]).forEach(s=>{
-      const row=parseSymbolRow(s);
-      const tr=document.createElement('tr');
-      tr.innerHTML=`<td>${H(row.desc)}</td><td>${H(row.symbol)}</td><td class="unit-cell">${cleanUnits(row.unit)}</td>`;
-      tb.appendChild(tr);
-    });
-
-    const st=document.getElementById('steps'); st.innerHTML='';
-    (d.steps||[]).forEach(s=>{const li=document.createElement('li'); li.innerHTML=H(s); st.appendChild(li);});
-
-    document.getElementById('secExplain').style.display='block';
-    if(window.MathJax?.typesetPromise) MathJax.typesetPromise();
+    (d.symbols||[]).forEach(s=>{ const tr=document.createElement('tr');
+      tr.innerHTML=`<td>${H(s.desc)}</td><td>${H(s.symbol)}</td><td class="unit-cell">${cleanUnits(s.unit)}</td>`; tb.appendChild(tr); });
+    const st=document.getElementById('steps'); st.innerHTML=''; (d.steps||[]).forEach(s=>{const li=document.createElement('li'); li.innerHTML=H(s); st.appendChild(li);});
+    document.getElementById('secExplain').style.display='block'; if(window.MathJax?.typesetPromise) MathJax.typesetPromise();
   }
-
   window.UI={renderCase, renderExplain, H};
 })();
 </script>
 
-<!-- ====== تحكم الأزرار واستدعاء الدالة ====== -->
+<script>
+/* تبديل الثيم */
+(function(){
+  const btn=document.getElementById('themeBtn');
+  function applyTheme(){
+    const dark=localStorage.getItem('theme')==='dark';
+    document.documentElement.classList.toggle('dark',dark);
+    btn.textContent=dark?'الوضع الفاتح':'الوضع الداكن';
+  }
+  btn.addEventListener('click',()=>{ const now=localStorage.getItem('theme')==='dark'?'light':'dark'; localStorage.setItem('theme',now); applyTheme(); });
+  applyTheme();
+})();
+</script>
+
+<!-- ربط الأزرار مع دالة نتلايفي (نفس العمل السابق) -->
 <script>
 (function(){
   const $=id=>document.getElementById(id);
@@ -333,21 +308,6 @@ function cleanUnits(s){
   function hideAll(){ secs.forEach(id=>$(id).style.display='none'); const e=$('error'); e.style.display='none'; e.textContent=''; }
   function setBusy(t){ $('status').textContent=t||''; document.querySelectorAll('.btn').forEach(b=>b.disabled=!!t); }
   function showErr(m){ const e=$('error'); e.style.display='block'; e.textContent=m||'حدث خطأ غير متوقع.'; }
-
-  // تبديل النمط (مع حماية لو الزر غير موجود)
-  const btnTheme=$('themeBtn');
-  function applyTheme(){
-    const dark=localStorage.getItem('theme')==='dark';
-    document.documentElement.classList.toggle('dark',dark);
-    if(btnTheme) btnTheme.textContent=dark?'الوضع الفاتح':'الوضع الداكن';
-  }
-  if(btnTheme){
-    btnTheme.addEventListener('click',()=>{
-      const now=localStorage.getItem('theme')==='dark'?'light':'dark';
-      localStorage.setItem('theme',now); applyTheme();
-    });
-  }
-  applyTheme();
 
   let LAST_PRACTICE_QUESTION='';
   const actionMap={ explain:'explain', ex1:'example', ex2:'example2', practice:'practice', solve:'solve' };
@@ -360,31 +320,22 @@ function cleanUnits(s){
     try{
       const res=await fetch('/.netlify/functions/anees',{method:'POST',headers:{'Content-Type':'application/json'},
         body:JSON.stringify({action:actionMap[action]||action,concept,question:(extra&&extra.question)||null})});
-      const out=await res.json().catch(()=>null);
-      if(!res.ok||!out?.ok) throw new Error(out?.error||'استجابة غير صالحة من الخادم.');
-      return out.data;
-    }catch(err){
-      showErr(err.message||'خطأ غير متوقع.'); return null;
-    }finally{ setBusy(''); }
+
+      const txt=await res.text(); let json=null; try{ json=JSON.parse(txt); }catch(_){}
+      if(!res.ok){ throw new Error((json&&json.error)||txt.slice(0,300)||('HTTP '+res.status)); }
+      if(!json){ throw new Error('استجابة غير صالحة من الخادم.'); }
+      const payload=json.data||json; if(payload.error){ throw new Error(payload.error); }
+      return payload;
+
+    }catch(err){ showErr(err.message||'خطأ غير متوقع.'); return null; }
+    finally{ setBusy(''); }
   }
 
   $('btnExplain').addEventListener('click', async ()=>{ hideAll(); const d=await call('explain'); if(!d) return; UI.renderExplain(d,$('concept').value); });
   $('btnEx1').addEventListener('click', async ()=>{ hideAll(); const d=await call('ex1'); if(!d) return; UI.renderCase('ex1',d); $('secEx1').style.display='block'; });
   $('btnEx2').addEventListener('click', async ()=>{ hideAll(); const d=await call('ex2'); if(!d) return; UI.renderCase('ex2',d); $('secEx2').style.display='block'; });
-  $('btnPractice').addEventListener('click', async ()=>{
-    hideAll();
-    const d=await call('practice'); if(!d) return;
-    LAST_PRACTICE_QUESTION=d.question||'';
-    $('practice').innerHTML=UI.H(LAST_PRACTICE_QUESTION||'—');
-    $('secPractice').style.display='block';
-    if(window.MathJax?.typesetPromise) MathJax.typesetPromise();
-  });
-  $('btnSolve').addEventListener('click', async ()=>{
-    hideAll();
-    if(!LAST_PRACTICE_QUESTION){ showErr('اعرضي أولاً سؤال "اختبر فهمي" ثم اضغطي "الحل الصحيح".'); return; }
-    const d=await call('solve',{question:LAST_PRACTICE_QUESTION}); if(!d) return;
-    UI.renderCase('solve',d); $('secSolve').style.display='block';
-  });
+  $('btnPractice').addEventListener('click', async ()=>{ hideAll(); const d=await call('practice'); if(!d) return; LAST_PRACTICE_QUESTION=d.question||''; $('practice').innerHTML=UI.H(LAST_PRACTICE_QUESTION||'—'); $('secPractice').style.display='block'; if(window.MathJax?.typesetPromise) MathJax.typesetPromise(); });
+  $('btnSolve').addEventListener('click', async ()=>{ hideAll(); if(!LAST_PRACTICE_QUESTION){ showErr('اعرضي أولاً سؤال "اختبر فهمي" ثم اضغطي "الحل الصحيح".'); return; } const d=await call('solve',{question:LAST_PRACTICE_QUESTION}); if(!d) return; UI.renderCase('solve',d); $('secSolve').style.display='block'; });
 })();
 </script>
 </body>
