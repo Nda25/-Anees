@@ -8,85 +8,92 @@
 
 <style>
 :root{
-  --ink:#0d1b12; --muted:#5c6f62;
-  --leaf-25:#eef7f1; --leaf-50:#e3f1e7; --leaf-100:#d6eadc;
-  --accent:#1b7d3b; --accent-2:#27a158;         /* أخضر عنوان */
-  --card:#fff; --ring:#bfe6c9; --btn-shadow:rgba(39,161,88,.25);
-  --radius:16px; --sub:#0e7a43; --h:#0e7a43;
-  --chip-bg:#e7f7ec; --chip-bd:#c8e9d3;
-  --error-bg:#fee2e2; --error-bd:#fecaca; --error-ink:#7f1d1d;
+  --ink:#0d1b12; --muted:#5c6f62;
+  --leaf-25:#eef7f1; --leaf-50:#e3f1e7; --leaf-100:#d6eadc;
+  --accent:#1b7d3b; --accent-2:#27a158;         /* أخضر عنوان */
+  --card:#fff; --ring:#bfe6c9; --btn-shadow:rgba(39,161,88,.25);
+  --radius:16px; --sub:#0e7a43; --h:#0e7a43;
+  --chip-bg:#e7f7ec; --chip-bd:#c8e9d3;
+  --error-bg:#fee2e2; --error-bd:#fecaca; --error-ink:#7f1d1d;
 }
 html.dark{
-  --ink:#e9fbea; --muted:#cfead7;
-  --leaf-25:#0b1710; --leaf-50:#0d1c12; --leaf-100:#0f2216;
-  --accent:#2a9a56; --accent-2:#1f7f47;         /* أخضر غامق في الداكن */
-  --card:#0f1c14; --ring:#194a2d; --btn-shadow:rgba(109,208,148,.22);
-  --sub:#9ce0b4; --h:#9ce0b4;
-  --chip-bg:#143a23; --chip-bd:#19512f;
-  --error-bg:#3a1010; --error-bd:#5b1a1a; --error-ink:#ffd7d7;
+  --ink:#e9fbea; --muted:#cfead7;
+  --leaf-25:#0b1710; --leaf-50:#0d1c12; --leaf-100:#0f2216;
+  --accent:#2a9a56; --accent-2:#1f7f47;         /* أخضر غامق في الداكن */
+  --card:#0f1c14; --ring:#194a2d; --btn-shadow:rgba(109,208,148,.22);
+  --sub:#9ce0b4; --h:#9ce0b4;
+  --chip-bg:#143a23; --chip-bd:#19512f;
+  --error-bg:#3a1010; --error-bd:#5b1a1a; --error-ink:#ffd7d7;
 }
+
 *{box-sizing:border-box} html,body{height:100%}
 body{
-  margin:0;color:var(--ink);
-  font-family:"Amiri", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  background:
-    radial-gradient(900px 520px at 10% -10%, var(--leaf-100), transparent 60%),
-    radial-gradient(900px 520px at 90% 110%, var(--leaf-50), transparent 60%),
-    linear-gradient(180deg, #fff, var(--leaf-25) 85%);
-  overflow-x:hidden;
+  margin:0;color:var(--ink);
+  font-family:"Amiri", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  background:
+    radial-gradient(900px 520px at 10% -10%, var(--leaf-100), transparent 60%),
+    radial-gradient(900px 520px at 90% 110%, var(--leaf-50), transparent 60%),
+    linear-gradient(180deg, #fff, var(--leaf-25) 85%);
+  overflow-x:hidden;
 }
+/* خلفية حيّة أوضح */
 body::before, body::after{
-  content:""; position:fixed; inset:0; z-index:-1; pointer-events:none;
-  background:
-    radial-gradient(60px 36px at 82% 24%, rgba(27,125,59,.15) 0%, transparent 70%),
-    radial-gradient(90px 56px at 20% 30%, rgba(27,125,59,.16) 0%, transparent 70%),
-    radial-gradient(120px 70px at 48% 78%, rgba(27,125,59,.15) 0%, transparent 70%),
-    radial-gradient(46px 28px at 12% 68%, rgba(27,125,59,.14) 0%, transparent 70%),
-    radial-gradient(66px 40px at 88% 82%, rgba(27,125,59,.13) 0%, transparent 70%);
-  animation:floaty 18s infinite alternate ease-in-out;
-  opacity:.95;
-  filter:contrast(110%);
+  content:""; position:fixed; inset:0; z-index:-1; pointer-events:none;
+  background:
+    radial-gradient(60px 36px at 82% 24%, rgba(27,125,59,.15) 0%, transparent 70%),
+    radial-gradient(90px 56px at 20% 30%, rgba(27,125,59,.16) 0%, transparent 70%),
+    radial-gradient(120px 70px at 48% 78%, rgba(27,125,59,.15) 0%, transparent 70%),
+    radial-gradient(46px 28px at 12% 68%, rgba(27,125,59,.14) 0%, transparent 70%),
+    radial-gradient(66px 40px at 88% 82%, rgba(27,125,59,.13) 0%, transparent 70%);
+  animation:floaty 18s infinite alternate ease-in-out;
+  opacity:.95;
+  filter:contrast(110%);
 }
 body::after{
-  opacity:.9;
-  animation-duration:26s; animation-delay:-6s;
-  filter:blur(0.2px) contrast(108%);
+  opacity:.9;
+  animation-duration:26s; animation-delay:-6s;
+  filter:blur(0.2px) contrast(108%);
 }
 @keyframes floaty{
-  from{ transform:translateY(0) }
-  to  { transform:translateY(26px) }
+  from{ transform:translateY(0) }
+  to  { transform:translateY(26px) }
 }
+
 .wrap{max-width:1100px;margin:0 auto;padding:22px;min-height:100vh;display:flex;flex-direction:column}
 .theme-toggle{position:fixed;top:14px;left:14px;z-index:5;background:var(--card);color:var(--ink);
-  border:1px solid var(--ring);border-radius:999px;padding:6px 10px;cursor:pointer;font-size:14px}
+  border:1px solid var(--ring);border-radius:999px;padding:6px 10px;cursor:pointer;font-size:14px}
 
 header{text-align:center;margin:6px 0 16px}
 header h1{
-  font-size:clamp(32px,5.5vw,54px);margin:10px 0 6px;font-weight:700;letter-spacing:.2px;color:var(--accent);
-  display:inline-flex;align-items:center;gap:12px
+  font-size:clamp(32px,5.5vw,54px);margin:10px 0 6px;font-weight:700;letter-spacing:.2px;color:var(--accent);
+  display:inline-flex;align-items:center;gap:12px
 }
 .logo-dot{width:26px;height:26px;border-radius:50%;background:var(--accent);
-  box-shadow:12px 0 0 0 var(--accent),24px 0 0 0 color-mix(in oklab, var(--accent) 82%, white 18%)}
+  box-shadow:12px 0 0 0 var(--accent),24px 0 0 0 color-mix(in oklab, var(--accent) 82%, white 18%)}
+
+/* العبارة التحفيزية — تبقى تحت الاسم دائمًا */
 header p.subtitle{
-  display:block; color:var(--muted);
-  margin:6px auto 0; font-size:clamp(14px,2.4vw,18px);
+  display:block; color:var(--muted);
+  margin:6px auto 0; font-size:clamp(14px,2.4vw,18px);
 }
+/* في الداكن: غامقة بدون تظليل */
 html.dark header p.subtitle{
-  display:block;
-  color:#bfead0;
-  text-shadow:0 1px 0 rgba(0,0,0,.45);
-  background:none; border:none; padding:0; border-radius:0;
-  width:max-content; margin:6px auto 0;
+  display:block;
+  color:#bfead0;                 /* أغمق من قبل وأوضح */
+  text-shadow:0 1px 0 rgba(0,0,0,.45);
+  background:none; border:none; padding:0; border-radius:0;
+  width:max-content; margin:6px auto 0;
 }
+
 .card{background:var(--card);border:1px solid var(--ring);border-radius:16px;box-shadow:0 12px 30px rgba(0,0,0,.06)}
 .pad{padding:14px}
 .inputs{display:flex;gap:12px;flex-wrap:wrap;justify-content:center}
 .input{width:min(560px,100%);padding:10px;border-radius:8px;border:1px solid var(--ring);font-size:18px;background:transparent;color:var(--ink)}
 .toolbar{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-top:10px}
 .btn{
-  background:linear-gradient(180deg,var(--accent),var(--accent-2));
-  color:#fff;border:none;padding:10px 14px;border-radius:12px;
-  font-weight:700;cursor:pointer;box-shadow:0 10px 20px var(--btn-shadow);font-size:16px
+  background:linear-gradient(180deg,var(--accent),var(--accent-2));
+  color:#fff;border:none;padding:10px 14px;border-radius:12px;
+  font-weight:700;cursor:pointer;box-shadow:0 10px 20px var(--btn-shadow);font-size:16px
 }
 .btn:disabled{opacity:.6;cursor:not-allowed}
 
@@ -116,12 +123,12 @@ h3.sub{color:var(--sub);margin:10px 0 6px 0;font-weight:700}
 footer{margin-top:auto;text-align:center;color:var(--muted);padding:20px 0 48px}
 footer .brandline{display:flex;align-items:center;gap:10px;justify-content:center;margin-top:10px}
 footer .leaf-dots{
-  width:18px;height:18px;border-radius:50%;background:var(--accent);
-  box-shadow:10px 0 0 0 var(--accent),20px 0 0 0 color-mix(in oklab, var(--accent) 82%, white 18%);
-  margin-inline:8px;
+  width:18px;height:18px;border-radius:50%;background:var(--accent);
+  box-shadow:10px 0 0 0 var(--accent),20px 0 0 0 color-mix(in oklab, var(--accent) 82%, white 18%);
+  margin-inline:8px;            /* مسافة صغيرة عن النص */
 }
 footer .quote{font-weight:700;color:var(--ink);font-size:clamp(15px,3.6vw,18px)}
-html.dark footer .quote{color:#e9fbea}
+html.dark footer .quote{color:#e9fbea}  /* أوضح على الجوال */
 footer .sig{margin-top:4px;color:var(--ink);font-size:clamp(14px,3.4vw,16px)}
 </style>
 
@@ -130,7 +137,6 @@ window.MathJax={tex:{inlineMath:[['$','$'],['\\(','\\)']],displayMath:[['$$','$$
 </script>
 <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
 </head>
-
 <body>
 <button class="theme-toggle" id="themeBtn">الوضع الداكن</button>
 
