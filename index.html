@@ -18,10 +18,9 @@
   --error-bg:#fee2e2; --error-bd:#fecaca; --error-ink:#7f1d1d;
 }
 html.dark{
-  --ink:#e8f4ed; --muted:#c6d6cc;
+  --ink:#e8f4ed; --muted:#cfe8d6; /* أوضح في الداكن */
   --leaf-25:#0b1710; --leaf-50:#0d1c12; --leaf-100:#0f2216;
-  --accent:#5cb87d;
-  --accent-2:#40a164;
+  --accent:#5cb87d; --accent-2:#40a164;
   --card:#0f1c14; --ring:#194a2d; --btn-shadow:rgba(109,208,148,.22);
   --sub:#9ce0b4; --h:#9ce0b4; --chip-bg:#143a23; --chip-bd:#19512f;
   --error-bg:#3a1010; --error-bd:#5b1a1a; --error-ink:#ffd7d7;
@@ -48,14 +47,18 @@ body{
 .theme-toggle{position:fixed;top:14px;left:14px;z-index:5;background:var(--card);color:var(--ink);
   border:1px solid var(--ring);border-radius:999px;padding:6px 10px;cursor:pointer;font-size:14px}
 
+/* ===== Header ===== */
 header{text-align:center;margin:6px 0 16px}
-header h1{font-size:clamp(32px,5.5vw,54px);margin:10px 0 6px;font-weight:700;letter-spacing:.2px;color:var(--accent);
-  display:inline-flex;align-items:center;gap:12px;
-}
-.logo-dot{width:26px;height:26px;border-radius:50%;background:var(--accent);
+header .title-row{display:inline-flex;align-items:center;gap:10px}
+header h1{font-size:clamp(32px,5.5vw,54px);margin:10px 0 6px;font-weight:700;letter-spacing:.2px;color:var(--accent)}
+/* الدوائر الخضراء القبل الاسم */
+.leaf-dots{width:24px;height:24px;border-radius:50%;background:var(--accent);
   box-shadow:12px 0 0 0 var(--accent),24px 0 0 0 color-mix(in oklab, var(--accent) 82%, white 18%)}
-header p{color:var(--muted);margin:4px 0 0;font-size:clamp(14px,2.4vw,18px)}
+/* سطر التحفيز تحت العنوان */
+header p.subtitle{color:var(--muted);margin:4px 0 0;font-size:clamp(14px,2.4vw,18px)}
+html.dark header p.subtitle{color:var(--muted); text-shadow:0 1px 0 rgba(0,0,0,.45);} /* أوضح في الداكن */
 
+/* ===== Cards & UI ===== */
 .card{background:var(--card);border:1px solid var(--ring);border-radius:var(--radius);box-shadow:0 12px 30px rgba(0,0,0,.06)}
 .pad{padding:14px}
 .inputs{display:flex;gap:12px;flex-wrap:wrap;justify-content:center}
@@ -89,6 +92,7 @@ h3.sub{color:var(--sub);margin:10px 0 6px 0;font-weight:700}
 .center{max-width:820px;margin:0 auto}
 .pill{display:inline-block;background:color-mix(in oklab, var(--leaf-50) 60%, var(--card) 40%);border:1px solid var(--ring);border-radius:999px;padding:.25rem .6rem;margin:.12rem .25rem}
 
+/* ===== Footer ===== */
 footer{margin-top:auto;text-align:center;color:var(--muted);padding:16px 0 40px}
 footer .brandline{display:flex;align-items:center;gap:12px; justify-content:center;margin-top:12px}
 footer .leaf-dots{width:18px;height:18px;border-radius:50%;background:var(--accent);
@@ -96,15 +100,18 @@ footer .leaf-dots{width:18px;height:18px;border-radius:50%;background:var(--acce
 footer .quote{font-weight:700;color:var(--ink);font-size:clamp(15px,3.6vw,18px)}
 footer .sig{margin-top:4px;color:var(--ink);font-size:clamp(14px,3.4vw,16px)}
 </style>
+</head>
 
 <body>
 <button class="theme-toggle" id="themeBtn">الوضع الداكن</button>
 
 <div class="wrap">
   <header>
-    <h1>أنيس – فيزياء</h1>
-    <span class="logo-dot" aria-hidden="true"></span>
-    <p>التميّز والنجاح يبدأ بخطوة.</p>
+    <div class="title-row">
+      <span class="leaf-dots" aria-hidden="true"></span>
+      <h1>أنيس – فيزياء</h1>
+    </div>
+    <p class="subtitle">التَّميُّز والنجاح يبدأ بخطوة.</p>
   </header>
 
   <section class="card pad" style="text-align:center;">
@@ -122,6 +129,7 @@ footer .sig{margin-top:4px;color:var(--ink);font-size:clamp(14px,3.4vw,16px)}
     <div id="error" class="err"></div>
   </section>
 
+  <!-- اشرح القانون -->
   <section id="secExplain" class="sec card pad" aria-live="polite">
     <h2 id="exTitle" class="section"></h2>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin:-4px 0 10px;justify-content:center;">
@@ -144,6 +152,7 @@ footer .sig{margin-top:4px;color:var(--ink);font-size:clamp(14px,3.4vw,16px)}
     <ol id="steps" class="box center" style="text-align:right;line-height:1.7;"></ol>
   </section>
 
+  <!-- بقية الأقسام -->
   <section id="secEx1" class="sec card pad"><h2 class="section">مثال تطبيقي</h2><div id="ex1" class="box"></div></section>
   <section id="secEx2" class="sec card pad"><h2 class="section">مثال آخر</h2><div id="ex2" class="box"></div></section>
   <section id="secPractice" class="sec card pad"><h2 class="section">اختبر فهمي</h2><div id="practice" class="box"></div></section>
@@ -153,47 +162,48 @@ footer .sig{margin-top:4px;color:var(--ink);font-size:clamp(14px,3.4vw,16px)}
     <div>مساعد ذكي لتبسيط قوانين الفيزياء لطلاب الثانوية والجامعة</div>
     <div class="brandline">
       <span class="leaf-dots" aria-hidden="true"></span>
-      <span class="quote">لكلِّ شيءٍ صعبٍ في حياتنا حلٌّ 🌟🌟</span>
+      <span class="quote">لكلِّ شيءٍ صعبٍ في حياتنا حلٌّ</span>
     </div>
     <div class="sig">ندى محمد المجيرش</div>
   </footer>
 </div>
 
+<!-- ===== Math helpers ===== -->
 <script>
-/* تنظيف الوحدات من \mathrm{} لعرضها كنص */
 function cleanUnits(s){
-  s=(s||'')+''; s=s.replace(/\\mathrm\s*\{([^}]+)\}/g,'$1'); s=s.replace(/^\s*\${1,2}|\${1,2}\s*$/g,'');
+  s=(s||'')+''; s=s.replace(/\\mathrm\\s*\\{([^}]+)\\}/g,'$1'); s=s.replace(/^\\s*\\${1,2}|\\${1,2}\\s*$/g,'');
   return s.trim();
 }
 (function(){
-  function cleanMath(s){ s=(s||'').replace(/\r/g,'\n').replace(/\n{3,}/g,'\n\n'); s=s.replace(/\\\\/g,'\\'); return s.trim(); }
-  function fixLatex(s){ s=cleanMath(s); s=s.replace(/(^|[^\\])\b(frac|sqrt|mathrm|cdot)\b/g,'$1\\$2'); return s; }
+  function cleanMath(s){ s=(s||'').replace(/\\r/g,'\\n').replace(/\\n{3,}/g,'\\n\\n'); s=s.replace(/\\\\\\\\/g,'\\\\'); return s.trim(); }
+  function fixLatex(s){ s=cleanMath(s); s=s.replace(/(^|[^\\\\])\\b(frac|sqrt|mathrm|cdot)\\b/g,'$1\\\\$2'); return s; }
   function htmlWithMath(input){
     let s=fixLatex(input||''); const blocks=[], inlines=[];
-    s=s.replace(/(^|[\s])\$([\s]|$)/g,'$1');
-    s=s.replace(/\$\$([\s\S]*?)\$\$/g,(m,i)=>{blocks.push('$$'+i+'$$');return '§§B'+(blocks.length-1)+'§§';});
-    s=s.replace(/\$([^$]+)\$/g,(m,i)=>{inlines.push('$'+i+'$');return '§§I'+(inlines.length-1)+'§§';});
-    s=s.replace(/\$/g,'');
-    s=s.replace(/§§B(\d+)§§/g,(m,i)=>`<div class="math-block">${blocks[i]}</div>`)
-     .replace(/§§I(\d+)§§/g,(m,i)=>`<span class="math-inline">${inlines[i]}</span>`);
+    s=s.replace(/(^|[\\s])\\$([\\s]|$)/g,'$1');
+    s=s.replace(/\\$\\$([\\s\\S]*?)\\$\\$/g,(m,i)=>{blocks.push('$$'+i+'$$');return '§§B'+(blocks.length-1)+'§§';});
+    s=s.replace(/\\$([^$]+)\\$/g,(m,i)=>{inlines.push('$'+i+'$');return '§§I'+(inlines.length-1)+'§§';});
+    s=s.replace(/\\$/g,'');
+    s=s.replace(/§§B(\\d+)§§/g,(m,i)=>`<div class="math-block">${blocks[i]}</div>`)
+     .replace(/§§I(\\d+)§§/g,(m,i)=>`<span class="math-inline">${inlines[i]}</span>`);
     return s;
   }
   window.MATH={htmlWithMath};
 })();
 </script>
 
+<!-- ===== عرض النتائج ===== -->
 <script>
 (function(){
   const H=window.MATH.htmlWithMath;
-  
+
   function renderGivenUnknowns(givens=[], unknowns=[]){
     const tbl=document.createElement('table'); tbl.className='table center';
     tbl.innerHTML=`<thead><tr><th>الرمز</th><th>القيمة</th><th>الوحدة</th><th>الوصف</th></tr></thead>`;
     const tb=document.createElement('tbody');
     (givens||[]).forEach(g=>{
       const tr=document.createElement('tr');
-      tr.innerHTML=`<td>${H(g.symbol||'')}</td><td>${H(g.value||'')}</td>
-        <td class="unit-cell">${cleanUnits(g.unit||'')}</td><td>${H(g.desc||'')}</td>`;
+      tr.innerHTML=\`<td>\${H(g.symbol||'')}</td><td>\${H(g.value||'')}</td>
+        <td class="unit-cell">\${cleanUnits(g.unit||'')}</td><td>\${H(g.desc||'')}</td>\`;
       tb.appendChild(tr);
     });
     if((unknowns||[]).length){
@@ -201,23 +211,23 @@ function cleanUnits(s){
       tr.appendChild(td); tb.appendChild(tr);
       unknowns.forEach(u=>{
         const r=document.createElement('tr');
-        r.innerHTML=`<td>${H(u.symbol||'')}</td><td>؟</td><td class="unit-cell">—</td><td>${H(u.desc||'')}</td>`;
+        r.innerHTML=\`<td>\${H(u.symbol||'')}</td><td>؟</td><td class="unit-cell">—</td><td>\${H(u.desc||'')}</td>\`;
         tb.appendChild(r);
       });
     }
     tbl.appendChild(tb); return tbl;
   }
-  
+
   function renderFormulasBox(list=[]){
     const box=document.createElement('div'); box.className='box center';
     list.forEach(f=>{ const d=document.createElement('div'); d.className='math-block';
-      const eq=/^\$\$/.test(f)?f:`$$${(f||'').replace(/^\$|\$$/g,'')}$$`; d.innerHTML=H(eq); box.appendChild(d); });
+      const eq=/^\\$\\$/.test(f)?f:\`$$\${(f||'').replace(/^\\$|\\$$/g,'')}$$\`; d.innerHTML=H(eq); box.appendChild(d); });
     return box;
   }
 
   function renderCase(containerId, data){
     const root=document.getElementById(containerId); root.innerHTML=''; const frag=document.createDocumentFragment();
-    const s1=document.createElement('div'); s1.innerHTML=`<div class="sub">المسألة</div><div class="box">${H(data.scenario||data.question||'—')}</div>`; frag.appendChild(s1);
+    const s1=document.createElement('div'); s1.innerHTML=\`<div class="sub">المسألة</div><div class="box">\${H(data.scenario||data.question||'—')}</div>\`; frag.appendChild(s1);
     const s2=document.createElement('div'); s2.className='sub'; s2.textContent='المعطيات والمجاهيل';
     const b2=document.createElement('div'); b2.className='box'; b2.appendChild(renderGivenUnknowns(data.givens||[], data.unknowns||[])); frag.appendChild(s2); frag.appendChild(b2);
     const s3=document.createElement('div'); s3.className='sub'; s3.textContent='القانون/القوانين المستخدمة';
@@ -229,7 +239,7 @@ function cleanUnits(s){
     if((data.steps||[]).length) b4.appendChild(ol);
     if(data.result){ const hr=document.createElement('div'); hr.style.height='1px'; hr.style.background='color-mix(in oklab, var(--ring) 70%, transparent 30%)'; hr.style.margin='8px 0';
       b4.appendChild(hr); const big=document.createElement('div'); big.className='math-block';
-      const eq=/^\$\$/.test(data.result)?data.result:`$$${data.result.replace(/^\$|\$$/g,'')}$$`; big.innerHTML=H(eq); b4.appendChild(big); }
+      const eq=/^\\$\\$/.test(data.result)?data.result:\`$$\${data.result.replace(/^\\$|\\$$/g,'')}$$\`; big.innerHTML=H(eq); b4.appendChild(big); }
     frag.appendChild(s4); frag.appendChild(b4); root.appendChild(frag); if(window.MathJax?.typesetPromise) MathJax.typesetPromise();
   }
   function renderExplain(d,concept){
@@ -238,7 +248,7 @@ function cleanUnits(s){
     const expF=document.getElementById('expFormulas'); expF.innerHTML=''; expF.appendChild(renderFormulasBox(d.formulas||[]));
     const tb=document.getElementById('symbols'); tb.innerHTML='';
     (d.symbols||[]).forEach(s=>{ const tr=document.createElement('tr');
-      tr.innerHTML=`<td>${H(s.desc)}</td><td>${H(s.symbol)}</td><td class="unit-cell">${H(s.unit)}</td>`; tb.appendChild(tr); });
+      tr.innerHTML=\`<td>\${H(s.desc)}</td><td>\${H(s.symbol)}</td><td class="unit-cell">\${H(s.unit)}</td>\`; tb.appendChild(tr); });
     const st=document.getElementById('steps'); st.innerHTML=''; (d.steps||[]).forEach(s=>{const li=document.createElement('li'); li.innerHTML=H(s); st.appendChild(li);});
     document.getElementById('secExplain').style.display='block'; if(window.MathJax?.typesetPromise) MathJax.typesetPromise();
   }
@@ -246,6 +256,7 @@ function cleanUnits(s){
 })();
 </script>
 
+<!-- ===== تحكم الأزرار (المنطق كما هو) ===== -->
 <script>
 (function(){
   const $=id=>document.getElementById(id);
@@ -275,7 +286,7 @@ function cleanUnits(s){
         body:JSON.stringify({action:actionMap[action]||action,concept,question:(extra&&extra.question)||null})});
 
       const txt = await res.text();
-      let json=null; try{ json=JSON.parse(txt); }catch(_){ /* إذا لم يكن JSON نظيف */ }
+      let json=null; try{ json=JSON.parse(txt); }catch(_){}
 
       if(!res.ok){
         const errMsg = (json&&json.error) ? json.error : (txt.slice(0,300)||('HTTP '+res.status));
