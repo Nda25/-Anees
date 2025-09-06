@@ -2,11 +2,11 @@
 export default async (req) => {
   try {
     const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-    if (!GEMINI_API_KEY) return j({ ok:false, error:"Missing GEMINI_API_KEY" }, 500);
+    if (!GEMINI_API_KEY) return json({ ok:false, error:"Missing GEMINI_API_KEY" }, 500);
 
     const body = await safeJson(req);
     const { action = "explain", subject = "الفيزياء", concept = "", question = "" } = body || {};
-    if (!concept) return j({ ok:false, error:"أدخلي اسم القانون/المفهوم." }, 400);
+    if (!concept) return json({ ok:false, error:"أدخلي اسم القانون/المفهوم." }, 400);
 
     const { url, payload } = buildCall(GEMINI_API_KEY, action, subject, concept, question);
 
@@ -31,7 +31,7 @@ ${raw}` }]}],
       data = tryParse(raw2) || tryParse(extractJson(raw2)) || tryParse(sanitizeJson(extractJson(raw2)));
     }
 
-    if (!data) return j({ ok:false, error:"Bad JSON from model" }, 502);
+    if (!data) return json({ ok:false, error:"Bad JSON from model" }, 502);
 
     // معالجة الرموز والترقيم بشكل أفضل
     if (data.steps) {
@@ -58,15 +58,15 @@ ${raw}` }]}],
 
     tidyPayloadNumbers(data);
 
-    return j({ ok:true, data });
+    return json({ ok:true, data });
 
   } catch (e) {
-    return j({ ok:false, error: e?.message || "Unexpected error" }, 500);
+    return json({ ok:false, error: e?.message || "Unexpected error" }, 500);
   }
 };
 
 /* ---------- Helpers ---------- */
-function j(obj, status=200){ return new Response(JSON.stringify(obj), { status, headers:{ "Content-Type":"application/json; charset=utf-8" } }); }
+function json(obj, status=200){ return new Response(JSON.stringify(obj), { status, headers:{ "Content-Type":"application/json; charset=utf-8" } }); }
 async function safeJson(req){ try{ return await req.json(); }catch{ return {}; } }
 function tryParse(s){ try{ return s && JSON.parse(s); }catch{ return null; } }
 function extractJson(text){
@@ -109,8 +109,6 @@ function tidyPayloadNumbers(obj){
   if (Array.isArray(obj.givens)) obj.givens = obj.givens.map(g => ({ ...g, value: fix(g.value) }));
   if (Array.isArray(obj.unknowns)) obj.unknowns = obj.unknowns.map(u => ({ ...u }));
 }
-
-/* ================= Prompt Builder ================= */
 function buildCall(key, action, subject, concept, question){
   const baseUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`;
 
@@ -197,7 +195,6 @@ ${JSON.stringify(exampleSchema)}
 
   return { url: baseUrl, payload };
 }
-
 async function callOnce(url, payload){
   const r = await fetch(url, {
     method:"POST",
