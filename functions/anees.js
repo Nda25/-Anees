@@ -1,4 +1,5 @@
-// functions/anees.js  — تحسين تنويع وصعوبة الأسئلة + ثبات العربية + صلابة JSON
+// functions/anees.js
+
 export default async (req, context) => {
   try {
     const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
@@ -10,63 +11,60 @@ export default async (req, context) => {
     const { action, subject = "الفيزياء", concept = "", question = "" } = body || {};
     if (!concept) return json({ ok: false, error: "أدخلي اسم القانون/المفهوم." }, 400);
 
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+    // نبني البرومبت بحسب الإجراء
+    const { prompt, temperature } = buildPrompt(action, subject, concept, question);
 
-    // 1) الطلب الأساسي
-    const prompt = buildPrompt(action, subject, concept, question);
-    let data = await callOnce(url, {
+    // استدعاء Gemini 1.5 Flash وإلزامه بإرجاع JSON فقط
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+    const payload = {
       contents: [{ role: "user", parts: [{ text: prompt }] }],
       generationConfig: {
-        temperature: action === "practice" ? 0.65 : action === "example2" ? 0.45 : 0.3,
+        temperature,                // افتراضي منخفض، أعلى فقط للسؤال والأصعب قليلاً
         maxOutputTokens: 900,
         response_mime_type: "application/json"
       }
+    };
+
+    const r = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
     });
 
-    // 2) إصلاح عام لو فشل
+    const j = await r.json().catch(() => null);
+
+    // محاولة قراءة JSON مباشرة
+    const rawText = j?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+    let data = tryParseJson(rawText);
+
+    // محاولة ثانية: قصّ أي حواشي ```json .. ```
     if (!data) {
-      const fixPrompt =
-        `أصلحي/أصلح JSON التالي ليطابق القالب المطلوب. أعِد كائن JSON صالحًا فقط بلا أي نص خارجي:\n<<<\n${prompt}\n>>>`;
-      data = await callOnce(url, {
-        contents: [{ role: "user", parts: [{ text: fixPrompt }] }],
-        generationConfig: { temperature: 0.25, response_mime_type: "application/json" }
+      const extracted = extractJson(rawText);
+      data = tryParseJson(extracted);
+    }
+
+    // محاولة ثالثة: نطلب منه إصلاح JSON
+    if (!data) {
+      const repairPrompt =
+        `أصلحي JSON التالي ليكون صالحًا 100% لنفس المخطط المطلوب. أعِدي الكائن فقط:\n<<<\n${rawText}\n>>>`;
+      const repairPayload = {
+        contents: [{ role: "user", parts: [{ text: repairPrompt }] }],
+        generationConfig: { temperature, response_mime_type: "application/json" }
+      };
+      const r2 = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(repairPayload)
       });
+      const j2 = await r2.json().catch(() => null);
+      const raw2 = j2?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+      data = tryParseJson(raw2) || tryParseJson(extractJson(raw2));
     }
 
-    // 2-ب) تشديد خاص لـ practice لو قصير/إنجليزي/بدون وحدات
-    if (action === "practice") {
-      const needsRedo =
-        !data ||
-        typeof data.question !== "string" ||
-        data.question.length < 80 ||                  // نمنع الأسئلة القصيرة جدًا
-        /[A-Za-z]/.test(data.question) ||            // نمنع الإنجليزية
-        !/\\mathrm\{[^}]+\}/.test(data.question);    // نتأكد من وجود وحدة واحدة على الأقل
-
-      if (needsRedo) {
-        const strictPractice =
-`أعِد JSON بالعربية فقط وبدون أي نص خارجي، بالشكل التالي تمامًا:
-{"question":"سؤال عربي عددي كامل وصحيح عن «${concept}» يحتوي على 2–4 معطيات على الأقل، ومجهول واحد فقط مختلف عشوائيًا في كل مرة، وطول السؤال لا يقل عن 20 كلمة، وكل قيمة عددية لها وحدة LaTeX داخل \\mathrm{}، وبدون حل."}
-
-إرشادات المحتوى:
-- المستوى المطلوب: متوسط (خطوة أو خطوتان).
-- أمثلة للوحدات فقط (لا تنسخ الأرقام): \\mathrm{N}, \\mathrm{kg}, \\mathrm{m/s^2}, \\mathrm{m}, \\mathrm{s}.
-- ابتعد عن الأعداد التافهة كـ 1 و2 فقط؛ استعمل قيمًا معقولة (مثل 3.2، 45، 9.8...).`;
-        data = await callOnce(url, {
-          contents: [{ role: "user", parts: [{ text: strictPractice }] }],
-          generationConfig: { temperature: 0.6, response_mime_type: "application/json" }
-        });
-      }
-
-      // 3) fallback محلي مضمون
-      if (!data || !data.question) {
-        data = {
-          question:
-            `كتلة صندوق مقدارها $6.5\\,\\mathrm{kg}$ سُحبت أفقياً بقوة ثابتة $18\\,\\mathrm{N}$ على سطح أملس لمسافة $4.0\\,\\mathrm{m}$. احسب التسارع الذي اكتسبه الصندوق، ثم فسّر هل تصل سرعته النهائية خلال $3.0\\,\\mathrm{s}$ إلى قيمة أكبر من $6\\,\\mathrm{m/s}$ أم لا، مع إهمال مقاومة الهواء.`
-        };
-      }
+    if (!data) {
+      return json({ ok: false, error: "Bad JSON from model" }, 502);
     }
 
-    if (!data) return json({ ok: false, error: "Bad JSON from model" }, 502);
     return json({ ok: true, data });
 
   } catch (err) {
@@ -74,114 +72,125 @@ export default async (req, context) => {
   }
 };
 
-/* ---------- helpers ---------- */
-async function callOnce(url, payload){
-  const r = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type":"application/json" },
-    body: JSON.stringify(payload)
-  });
-  const j = await r.json().catch(() => null);
-
-  const cand = j?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
-  let obj = tryParseJson(cand);
-  if (!obj) obj = tryParseJson(extractJson(cand));
-  return obj;
-}
-
+/* ===== Helpers ===== */
 function json(obj, status = 200) {
   return new Response(JSON.stringify(obj), {
     status,
     headers: { "Content-Type": "application/json; charset=utf-8" }
   });
 }
-async function safeJson(req) { try { return await req.json(); } catch(_) { return {}; } }
-function tryParseJson(s){ try { return s && JSON.parse(s); } catch(_){ return null; } }
-function extractJson(text){
+async function safeJson(req) {
+  try { return await req.json(); } catch (_) { return {}; }
+}
+function tryParseJson(s) { try { return s && JSON.parse(s); } catch (_) { return null; } }
+function extractJson(text) {
   if (!text) return "";
-  let t = (text+"").trim().replace(/^```json/i,"```").replace(/^```/,"").replace(/```$/,"").trim();
-  const a=t.indexOf("{"), b=t.lastIndexOf("}");
-  if(a>=0 && b>a) t=t.slice(a,b+1);
+  let t = (text + "")
+    .trim()
+    .replace(/^```json/i, "```")
+    .replace(/^```/, "")
+    .replace(/```$/, "")
+    .trim();
+  const a = t.indexOf("{"), b = t.lastIndexOf("}");
+  if (a >= 0 && b > a) t = t.slice(a, b + 1);
   return t;
 }
 
-/* ---------- prompt builder ---------- */
-function buildPrompt(action, subject, concept, question){
-  const salt = Math.floor(Math.random()*1e9); // لتحسين التنويع
+/* ===== Prompt builder (مع نفس المخططات – فقط تحسين المحتوى) ===== */
+function buildPrompt(action, subject, concept, question) {
   const header =
 `أنت خبير ${subject}.
-اكتب بالعربية الفصحى فقط. المعادلات بـ LaTeX داخل $...$ أو $$...$$، والوحدات داخل \\mathrm{} (مثل: $9.8\\,\\mathrm{m/s^2}$).
-أعِد دائمًا JSON صالحًا فقط، بدون أي نص خارجي قبل أو بعد الكائن.
+اكتب عربيًا فصيحًا فقط (بدون إنجليزية إلا الرموز والوحدات القياسية).
+المعادلات بصيغة LaTeX بين $...$ أو $$...$$، والوحدات داخل \\mathrm{} مثل: $9.8\\,\\mathrm{m/s^2}$.
+أعِد دائمًا JSON صالحًا فقط، بدون أي شرح خارج الكائن.
 المفهوم: «${concept}».`;
 
-  const explainSchema = `{
-    "title":"عنوان",
-    "overview":"تعريف موجز",
-    "symbols":[
-      {"desc":"القوة","symbol":"F","unit":"\\\\mathrm{N}"},
-      {"desc":"الكتلة","symbol":"m","unit":"\\\\mathrm{kg}"},
-      {"desc":"التسارع","symbol":"a","unit":"\\\\mathrm{m/s^2}"}
+  // نفس مخطط "اشرح لي" لكن الرموز ككائنات واضحة (هذا ما يعتمد عليه الواجهة)
+  const explainSchema = compactJson({
+    title: "عنوان",
+    overview: "تعريف موجز",
+    symbols: [
+      { desc: "القوة", symbol: "F", unit: "\\mathrm{N}" }
     ],
-    "formulas":["$$F=ma$$","$$a=\\\\frac{F}{m}$$"],
-    "steps":["استخراج المعطيات والمجاهيل","تحديد الصيغة المناسبة","التعويض والحساب"]
-  }`;
+    formulas: ["$$F=ma$$"],
+    steps: ["استخراج المعطيات والمجاهيل","تحديد الصيغة المناسبة","التعويض والحساب"]
+  });
 
-  const exampleSchema = `{
-    "scenario":"نص مسألة عربية صحيحة وواضحة.",
-    "givens":[
-      {"symbol":"m","value":"5.0","unit":"\\\\mathrm{kg}","desc":"الكتلة"},
-      {"symbol":"F","value":"12","unit":"\\\\mathrm{N}","desc":"القوة"}
-    ],
-    "unknowns":[{"symbol":"a","desc":"التسارع"}],
-    "formula":"$$a=\\\\frac{F}{m}$$",
-    "steps":[
-      "رتّب القانون المناسب بحيث يصبح المجهول في طرف واحد.",
-      "عوّض بالقيم مع الوحدات ثم اجمع/اطرح/اضرب/اقسم حسب الحاجة.",
-      "أجِرِ الحساب وقدّم الناتج النهائي بوحدة صحيحة."
-    ],
-    "result":"$$a=2.4\\\\,\\\\mathrm{m/s^2}$$"
-  }`;
+  // مخطط المثال/الحل
+  const exampleSchema = compactJson({
+    scenario: "نص المسألة",
+    givens: [{ symbol: "m", value: "5", unit: "\\mathrm{kg}", desc: "الكتلة" }],
+    unknowns: [{ symbol: "a", desc: "التسارع" }],
+    formula: "$$F = m a$$",
+    steps: ["خطوة تفسيرية بدون ترقيم يدوي داخل النص"],
+    result: "$$a = 2\\,\\mathrm{m/s^2}$$"
+  });
+
+  // نُثبّت حرارة منخفضة افتراضيًا (للدقة)، ونرفعها قليلاً عند توليد الأسئلة لتقليل التكرار
+  let temperature = 0.2;
+  let prompt = header;
 
   if (action === "explain") {
-    return `${header}
-أعِد JSON يطابق القالب التالي حرفيًا بلا نص خارجي:
-${explainSchema}`;
+    prompt +=
+`\nأعِد JSON يطابق تمامًا المخطط التالي واملأ الحقول بدقة حول المفهوم:
+${asObject(explainSchema)}`;
+    return { prompt, temperature };
   }
 
   if (action === "example") {
-    return `${header}
-أعِد JSON لمثال تطبيقي عن المفهوم بالقالب التالي حرفيًا (مستوى صعوبة متوسط):
-${exampleSchema}
-ملحظات: لا تضف أي حقول غير موجودة في القالب.`;
+    prompt +=
+`\nأعِد JSON لمسألة تطبيقية **بمستوى صعوبة متوسط** حول المفهوم.
+- عربية تمامًا.
+- أرقام حقيقية معقولة (تجنّب 5 و10 و100) وسمات غير مكررة.
+- اختر مجهولًا مناسبًا للمفهوم.
+- صياغة المسألة من جملتين إلى ثلاث، واضحة وغير مكررة.
+- استخدم وحدات SI داخل \\mathrm{}.
+- لا تكتب ترقيمًا داخل عناصر steps (الواجهة ترقم تلقائيًا).
+المخطط (التزمي به حرفيًا):
+${asObject(exampleSchema)}`;
+    return { prompt, temperature: 0.35 }; // زيادة طفيفة للتنويع
   }
 
   if (action === "example2") {
-    // أصعب بدرجة: نطلب خطوتين/تحويل بسيط/مجهول مختلف
-    return `${header}
-أعِد مثالًا آخر بمجهول مختلف عن المثال الأول (إن كان الأول يحسب a فاحسب m أو F مثلًا).
-المستوى: فوق المتوسط بدرجة بسيطة (يتطلّب خطوتين أو تحويل وحدة بسيط).
-ملحظات التوليد:
-- اجعل المعطيات 2–3 على الأقل وبقية الصياغة عربية سليمة.
-- أدرِج تحويلًا بسيطًا واحدًا إن لزم (مثل cm إلى m) أو إعادة ترتيب قانون واضحة.
-ملح عشوائي:${salt}
-أعِد JSON يطابق القالب التالي حرفيًا بلا نص خارجي:
-${exampleSchema}`; // نستخدم نفس القالب لكن على الموديل اختيار مجهول مختلف وصعوبة أعلى
+    prompt +=
+`\nأعِد JSON لمسألة تطبيقية **أصعب بقليل من المثال الأول** حول نفس المفهوم.
+- غيّري **المجهول** بحيث يختلف عن المثال الأول قدر الإمكان.
+- أضيفي تعقيدًا بسيطًا مثل: تحويل وحدات، رقمين عشريين، أو قيمة عند زاوية (إن كان مناسبًا للمفهوم).
+- صياغة عربية من جملتين إلى ثلاث.
+- قيم غير “مريحة” (مثل 7.4, 3.6, 12.8 بدل 5 أو 10).
+- لا تكتبي ترقيمًا داخل steps.
+المخطط (التزمي به حرفيًا):
+${asObject(exampleSchema)}`;
+    return { prompt, temperature: 0.4 }; // أصعب → تنويع أكبر قليلًا
   }
 
   if (action === "practice") {
-    return `${header}
-أعِد JSON بالعربية فقط يحتوي سؤالًا عدديًا كاملًا عن «${concept}» (بدون حل) مع 2–4 معطيات على الأقل ومجهول واحد، وطول لا يقل عن 20 كلمة، وكل قيمة لها وحدة \\mathrm{}، وبمستوى صعوبة متوسط. لا تضف أي نص خارج JSON:
-{"question":"..."}
-ملح عشوائي:${salt}`;
+    prompt +=
+`\nأعِد JSON يحتوي **سؤال تدريب واحد** فقط في الحقل question، **بالعربية فقط**، و**بمستوى صعوبة متوسط**:
+- صياغة من جملتين إلى ثلاث جمل واضحة.
+- استخدمي قيمًا بأعداد تختلف في كل مرة (عشوائية مع منزلتين عشريتين ضمن نطاقات معقولة).
+- **اختاري مجهولًا مختلفًا** قدر الإمكان عن الأمثلة المباشرة للمفهوم (إن أمكن).
+- جميع القيم بوحدات SI داخل \\mathrm{} (مثل \\mathrm{N}, \\mathrm{kg}, \\mathrm{m/s}, \\mathrm{m/s^2}).
+- **بدون حل**، فقط السؤال.
+- أعِدي JSON بهذا الشكل فقط:
+{"question":"نص السؤال بالعربية فقط."}`;
+    return { prompt, temperature: 0.55 }; // نرفع أكثر عشان التنويع وتفادي التكرار
   }
 
   if (action === "solve") {
-    return `${header}
-حلّل المسألة التالية بالتفصيل بنفس قالب المثال (givens/unknowns/formula/steps/result) وأعِد JSON فقط:
+    prompt +=
+`\nحلّ المسألة التالية بالتفصيل وفق المخطط (نفس exampleSchema)، ولا تضع ترقيمًا يدويًا داخل steps:
 السؤال: ${question}
-القالب:
-${exampleSchema}`;
+المخطط (التزمي به حرفيًا):
+${asObject(exampleSchema)}`;
+    return { prompt, temperature };
   }
 
-  return `${header}{"note":"explain/example/example2/practice/solve فقط"}`;
+  // افتراضي
+  prompt += `\n{"note":"explain/example/example2/practice/solve فقط"}`;
+  return { prompt, temperature };
 }
+
+/* Utilities لعرض المخططات بشكل مدمج داخل البرومبت */
+function compactJson(obj){ return JSON.stringify(obj).replace(/\s+/g,''); }
+function asObject(str){ return (str.startsWith('{') ? str : `{${str}}`); }
