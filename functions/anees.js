@@ -33,7 +33,7 @@ ${raw}` }]}],
 
     if (!data) return j({ ok:false, error:"Bad JSON from model" }, 502);
 
-    // معالجة الرموز والترقيم بشكل أفضل
+    // معالجة الرموز والترقيم بشكل أفضل
     if (data.steps) {
         data.steps = data.steps.map(s => s.replace(/^\s*\d+\.\s*/, '').trim());
     }
@@ -60,18 +60,13 @@ ${raw}` }]}],
 
     return j({ ok:true, data });
 
-  } catch (err) {
-    return j({ ok:false, error: err?.message || "Unexpected error" }, 500);
+  } catch (e) {
+    return j({ ok:false, error: e?.message || "Unexpected error" }, 500);
   }
 };
 
-/* ================= Helpers ================= */
-function j(obj, status=200){
-  return new Response(JSON.stringify(obj), {
-    status,
-    headers:{ "Content-Type":"application/json; charset=utf-8" }
-  });
-}
+/* ---------- Helpers ---------- */
+function j(obj, status=200){ return new Response(JSON.stringify(obj), { status, headers:{ "Content-Type":"application/json; charset=utf-8" } }); }
 async function safeJson(req){ try{ return await req.json(); }catch{ return {}; } }
 function tryParse(s){ try{ return s && JSON.parse(s); }catch{ return null; } }
 function extractJson(text){
@@ -116,31 +111,120 @@ function tidyPayloadNumbers(obj){
 }
 
 /* ================= Prompt Builder ================= */
-function buildPrompt(action, subject, concept, question){
-  const BASE = `أنت خبيرة ${subject}.
-اكتبي بالعربية الفصحى فقط (ممنوع الإنجليزية).
-التزمي STRICTLY بالمفهوم المطلوب: «${concept}» ولا تنتقلي لغيره.
-اكتبي الوحدات داخل \\mathrm{...} حصرًا: \\mathrm{N}, \\mathrm{kg}, \\mathrm{m/s^2} ...
-استعملي ترميز LaTeX داخل $...$ أو $$...$$ للمعادلات والرموز ذات السفلية (m_1, v_f).
-القيم العددية الكبيرة اكتبيها بصيغة LaTeX العلمية (a\\times10^{n}) لا بصيغة e.
-أعيدي كائن JSON صالح فقط بدون أي شرح أو أسطر زائدة.`;
-  const EXPLAIN_SCHEMA = `{"title":"string","overview":"string","symbols":[{"desc":"string","symbol":"string","unit":"string"}],"formulas":["string"],"steps":["string"]}`;
-  const EXAMPLE_SCHEMA = `{"scenario":"string","givens":[{"symbol":"string","value":"string","unit":"string","desc":"string"}],"unknowns":[{"symbol":"string","desc":"string"}],"formula":"string","steps":["string"],"result":"string"}`;
-  const PRACTICE_SCHEMA = `{"question":"string"}`;
-  if (action === "explain"){
-    return `${BASE}\nأعيدي JSON يطابق هذا المخطط: ${EXPLAIN_SCHEMA}\n- اجعلي "formulas" صحيحة وتتعلق فقط بـ «${concept}».\n- اجعلي "symbols" مختصرة: (desc عربي واضح، symbol مثل F أو m_1، unit داخل \\mathrm{...}).\n- اجعلي "steps" قائمة بنقاط منفصلة (كل نقطة خطوة منفصلة).`;
+function buildCall(key, action, subject, concept, question){
+  const baseUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`;
+
+  const header =
+`أنت خبيرة ${subject}.
+اكتبي بالعربية الفصحى فقط.
+المعادلات بالـ LaTeX بين $...$ أو $$...$$.
+الوحدات داخل \\mathrm{} مثل: $9.8\\,\\mathrm{m/s^2}$.
+أعد دائمًا "JSON صالح فقط" بلا أي شرح خارج الكائن.
+المفهوم: «${concept}».`;
+
+  const explainSchema = {
+    title: "عنوان قصير",
+    overview: "تعريف موجز واضح بالعربية",
+    symbols: [
+      { desc:"القوة", symbol:"F", unit:"\\mathrm{N}" }
+    ],
+    formulas: ["$$F=ma$$"],
+    steps: ["١- استخراج المعطيات","٢- اختيار القانون","٣- التعويض والحساب"]
+  };
+
+  const exampleSchema = {
+    scenario: "نص مسألة عددية حقيقية وواضحة",
+    givens: [ { symbol:"m", value:"5", unit:"\\mathrm{kg}", desc:"الكتلة" } ],
+    unknowns: [ { symbol:"a", desc:"التسارع" } ],
+    formulas: ["$$F=ma$$"],
+    steps: ["اشرح خطوات الحل بالتفصيل مع التعويض العددي في كل خطوة إن أمكن. لا تضع أرقامًا للخطوات في النص نفسه."],
+    result: "$$a = 2\\,\\mathrm{m/s^2}$$"
+  };
+
+  // دَفعات مُهيّأة حسب نوع الطلب
+  let temp = 0.2;
+  let prompt = header;
+
+  if (action === "explain") {
+    prompt += `
+أعِد JSON يطابق هذا المخطط حرفيًا مع توسيعه بما يلزم:
+${JSON.stringify(explainSchema)}
+- لا تستخدم الإنجليزية في الشرح.
+- لا تكتب \\mathrm في النص العادي (فقط داخل المعادلات).
+- اجعل جدول الرموز مصفوفة كائنات: [{ "desc","symbol","unit" }].`;
+  } else if (action === "example") {
+    temp = 0.35;
+    prompt += `
+أعِد JSON يمثل مثالًا تطبيقيًا بصعوبة "متوسطة" حول «${concept}».
+يجب أن يملأ هذا المخطط (مسموح التغيير في القيم فقط):
+${JSON.stringify(exampleSchema)}
+- اكتب القيم بالأرقام العادية (مثل 0.002 وليس 2e-3).
+- لا تكتب عبارة "سؤال صحيح وواضح".
+- اجعل خطوات الحل مفصلة وتشرح عملية التعويض العددي.`;
+  } else if (action === "example2") {
+    temp = 0.5;  // أصعب بدرجة
+    prompt += `
+أعِد JSON يمثل مثالًا آخر "أصعب بقليل" من المثال الأول، وبمجهول مختلف.
+النموذج:
+${JSON.stringify(exampleSchema)}
+- غيّر المجهول (مثلاً من a إلى m أو F).
+- لا تستخدم الصيغة العلمية 1e3؛ اكتب 1000.
+- بدون أي نص خارج JSON.
+- اجعل خطوات الحل مفصلة وتشرح عملية التعويض العددي.`;
+  } else if (action === "practice") {
+    temp = 0.55;
+    prompt += `
+أعِد JSON بهذا الشكل فقط:
+{ "question": "<سؤال عربي عددي كامل حول «${concept}» بصياغة سليمة وواضحة، مستوى صعوبة متوسط، مع أرقام ووحدات حقيقية داخل LaTeX عند الحاجة>" }
+- لا تكرر نفس المجهول في كل مرة؛ نوع بين (السرعة، التسارع، الكتلة، القوة، الزمن، الارتفاع، الشحنة...) حسب المفهوم.
+- لا تضع أي مفاتيح أخرى.
+- لا تكتب الإنجليزية مطلقًا.`;
+  } else if (action === "solve") {
+    temp = 0.25;
+    prompt += `
+حل المسألة التالية بنفس شكل المثال (givens/unknowns/formulas/steps/result):
+السؤال: ${question}
+- رتّب givens/unknowns بدقة ووحدات صحيحة.
+- أظهر في Steps الخطوات بالتفصيل مع التعويض العددي، وأي معادلة داخل $...$ أو $$...$$.
+- ضع النتيجة النهائية في "result" بصيغة LaTeX مع الوحدة.
+- القيم بالأرقام العادية (بدون 1e3).`;
   }
-  if (action === "example"){
-    return `${BASE}\nأعيدي JSON يطابق هذا المخطط: ${EXAMPLE_SCHEMA}\nالمستوى: متوسط. اختاري مجهولًا مناسبًا واحدًا لهذا المفهوم.\nاستخدمي قيَمًا منطقية ووحدات صحيحة. اشرحي الخطوات بالعربية، وأي معادلة داخل $...$.\n- اجعلي كل خطوة في عنصر منفصل داخل مصفوفة "steps".`;
-  }
-  if (action === "example2"){
-    return `${BASE}\nأعيدي JSON يطابق هذا المخطط: ${EXAMPLE_SCHEMA}\nالمستوى: فوق المتوسط بدرجة (خطوات اعتماد/اشتقاق إضافية).\nاختاري مجهولًا مختلفًا عن المثال الشائع لنفس المفهوم (متغير آخر من نفس القانون).\nتأكدي أن القانون والصيغ تخص «${concept}» تحديدًا.\n- اجعلي كل خطوة في عنصر منفصل داخل مصفوفة "steps".`;
-  }
-  if (action === "practice"){
-    return `${BASE}\nأعيدي JSON يطابق هذا المخطط: ${PRACTICE_SCHEMA}\nاكتبي سؤال تدريب عربي فقط من 2–3 جُمل، بمستوى "متوسط".\nغيّري السيناريو والمجهول في كل مرة (عشوائيًا بين متغيرات المفهوم الشائعة).\nضمّني أعدادًا مع وحداتها الصحيحة بصيغة LaTeX، وامتنعي عن e-notation نهائيًا.`;
-  }
-  if (action === "solve"){
-    return `${BASE}\nحلّي المسألة التالية وأعيدي JSON يطابق مخطط المثال: ${EXAMPLE_SCHEMA}\nالسؤال: ${question}\n- رتّبي givens/unknowns بدقة ووحدات صحيحة.\n- اجعلي Steps بالعربية وأي معادلة داخل $...$ أو $$...$$.\n- ضعي النتيجة النهائية في "result" بصيغة LaTeX مع الوحدة.\n- اجعلي كل خطوة في عنصر منفصل داخل مصفوفة "steps".`;
-  }
-  return `${BASE}{"error":"unknown action"}`;
+
+  const payload = {
+    contents:[{ role:"user", parts:[{ text: prompt }]}],
+    generationConfig:{ temperature: temp, maxOutputTokens: 900, response_mime_type:"application/json" }
+  };
+
+  return { url: baseUrl, payload };
+}
+
+async function callOnce(url, payload){
+  const r = await fetch(url, {
+    method:"POST",
+    headers:{ "Content-Type":"application/json" },
+    body: JSON.stringify(payload)
+  });
+  const j = await r.json().catch(()=>null);
+  lastRawText = j?.candidates?.[0]?.content?.parts?.[0]?.text || "";
+  // حاول مباشرة
+  let data = tryParse(lastRawText);
+  if (!data) data = tryParse(stripFence(lastRawText));
+  return data;
+}
+
+async function fixJson(url, raw){
+  if (!raw) return null;
+  const fixPrompt = `أصلِح JSON التالي ليصبح صالحًا 100% وأعِد الكائن فقط:
+${raw}`;
+  const r = await fetch(url, {
+    method:"POST",
+    headers:{ "Content-Type":"application/json" },
+    body: JSON.stringify({
+      contents:[{ role:"user", parts:[{ text: fixPrompt }]}],
+      generationConfig:{ temperature:0.1, response_mime_type:"application/json" }
+    })
+  });
+  const j = await r.json().catch(()=>null);
+  const text = j?.candidates?.[0]?.content?.parts?.[0]?.text || "";
+  return tryParse(text) || tryParse(stripFence(text));
 }
