@@ -111,29 +111,16 @@ function buildPrompt(action, subject, concept, question) {
     "steps":["اكتب الخطوات بدون ترقيم. مثلا: رتب القانون ليصبح $a=F/m$"],
     "result":"$$a = 2\\,\\mathrm{m/s^2}$$"
   `.replace(/\s/g, '');
-  
-  const example2Schema = `
-    "scenario":"نص مسألة صحيحة وواضحة. المجهول يجب أن يكون مختلفًا عن المسألة السابقة.",
-    "givens":[{"symbol":"a","value":"2","unit":"\\mathrm{m/s^2}","desc":"التسارع"}],
-    "unknowns":[{"symbol":"m","desc":"الكتلة"}],
-    "formula":"$$F = m a$$",
-    "steps":["اكتب الخطوات بدون ترقيم. مثلا: رتب القانون ليصبح $m=F/a$"],
-    "result":"$$m = 5\\,\\mathrm{kg}$$"
-  `.replace(/\s/g, '');
 
   if (action === "explain") {
     return `${header}\nأعِد JSON يطابق المخطط التالي تمامًا، واملأ الحقول ببيانات عن المفهوم.
     \nالمخطط: {${explainSchema}}`;
   }
 
-  if (action === "example") {
-    return `${header}\nأعِد JSON يمثل مسألة تطبيقية عن المفهوم، واملأ الحقول ببيانات حقيقية.
+  if (action === "example" || action === "example2") {
+    const additionalHint = action === "example2" ? "المجهول يجب أن يكون مختلفًا عن المثال الأول." : "";
+    return `${header}\nأعِد JSON يمثل مسألة تطبيقية عن المفهوم، واملأ الحقول ببيانات حقيقية. ${additionalHint}
     \nالمخطط: {${exampleSchema}}`;
-  }
-  
-  if (action === "example2") {
-    return `${header}\nأعِد JSON يمثل مسألة تطبيقية عن المفهوم، واملأ الحقول ببيانات حقيقية. المجهول يجب أن يكون مختلفًا عن المثال الأول.
-    \nالمخطط: {${example2Schema}}`;
   }
 
   if (action === "practice") {
