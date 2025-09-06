@@ -4,7 +4,9 @@
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <title>أنيس – فيزياء</title>
+
 <link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&display=swap" rel="stylesheet"/>
+
 <style>
 :root{
   --ink:#0d1b12; --muted:#5c6f62;
@@ -18,8 +20,8 @@
 html.dark{
   --ink:#e8f4ed; --muted:#c6d6cc;
   --leaf-25:#0b1710; --leaf-50:#0d1c12; --leaf-100:#0f2216;
-  --accent:#5cb87d; /* تم تعديل هذا اللون ليظهر أوضح في الوضع الداكن */
-  --accent-2:#40a164; /* تم تعديل هذا اللون ليظهر أوضح في الوضع الداكن */
+  --accent:#5cb87d;
+  --accent-2:#40a164;
   --card:#0f1c14; --ring:#194a2d; --btn-shadow:rgba(109,208,148,.22);
   --sub:#9ce0b4; --h:#9ce0b4; --chip-bg:#143a23; --chip-bd:#19512f;
   --error-bg:#3a1010; --error-bd:#5b1a1a; --error-ink:#ffd7d7;
@@ -48,7 +50,7 @@ body{
 
 header{text-align:center;margin:6px 0 16px}
 header h1{font-size:clamp(32px,5.5vw,54px);margin:10px 0 6px;font-weight:700;letter-spacing:.2px;color:var(--accent);
-  display:inline-flex;align-items:center;gap:12px; /* تم تعديل المسافة بين العنوان والدوائر */
+  display:inline-flex;align-items:center;gap:12px;
 }
 .logo-dot{width:26px;height:26px;border-radius:50%;background:var(--accent);
   box-shadow:12px 0 0 0 var(--accent),24px 0 0 0 color-mix(in oklab, var(--accent) 82%, white 18%)}
@@ -88,21 +90,21 @@ h3.sub{color:var(--sub);margin:10px 0 6px 0;font-weight:700}
 .pill{display:inline-block;background:color-mix(in oklab, var(--leaf-50) 60%, var(--card) 40%);border:1px solid var(--ring);border-radius:999px;padding:.25rem .6rem;margin:.12rem .25rem}
 
 footer{margin-top:auto;text-align:center;color:var(--muted);padding:16px 0 40px}
-footer .brandline{display:flex;align-items:center;gap:12px; /* تم تعديل المسافة بين النص والدوائر */ justify-content:center;margin-top:12px}
+footer .brandline{display:flex;align-items:center;gap:12px; justify-content:center;margin-top:12px}
 footer .leaf-dots{width:18px;height:18px;border-radius:50%;background:var(--accent);
   box-shadow:10px 0 0 0 var(--accent),20px 0 0 0 color-mix(in oklab, var(--accent) 82%, white 18%)}
 footer .quote{font-weight:700;color:var(--ink);font-size:clamp(15px,3.6vw,18px)}
 footer .sig{margin-top:4px;color:var(--ink);font-size:clamp(14px,3.4vw,16px)}
 </style>
-</head>
+
 <body>
-<button id="themeBtn" class="theme-toggle">الوضع الداكن</button>
+<button class="theme-toggle" id="themeBtn">الوضع الداكن</button>
 
 <div class="wrap">
   <header>
-    <!-- (التعديل) أضفت مسافة أكبر وشدّدت ألوان النقاط وتباعدها -->
-    <h1><span class="logo-dots" aria-hidden="true"></span> أنيس – فيزياء</h1>
-    <p>التَّميُّز والنجاح يبدأ بخُطوة.</p>
+    <span class="logo-dot" aria-hidden="true"></span>
+    <h1>أنيس – فيزياء</h1>
+    <p>التميّز والنجاح يبدأ بخطوة.</p>
   </header>
 
   <section class="card pad" style="text-align:center;">
@@ -120,7 +122,6 @@ footer .sig{margin-top:4px;color:var(--ink);font-size:clamp(14px,3.4vw,16px)}
     <div id="error" class="err"></div>
   </section>
 
-  <!-- اشرح القانون -->
   <section id="secExplain" class="sec card pad" aria-live="polite">
     <h2 id="exTitle" class="section"></h2>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin:-4px 0 10px;justify-content:center;">
@@ -133,10 +134,8 @@ footer .sig{margin-top:4px;color:var(--ink);font-size:clamp(14px,3.4vw,16px)}
 
     <h3 class="sub" style="text-align:center">الرموز والوحدات</h3>
     <div class="center">
-      <table id="symbolsTbl" class="table">
-        <thead>
-          <tr><th>الوصف</th><th>الرمز</th><th>الوحدة</th></tr>
-        </thead>
+      <table class="table">
+        <thead><tr><th>الوصف</th><th>الرمز</th><th>الوحدة</th></tr></thead>
         <tbody id="symbols"></tbody>
       </table>
     </div>
@@ -145,35 +144,23 @@ footer .sig{margin-top:4px;color:var(--ink);font-size:clamp(14px,3.4vw,16px)}
     <ol id="steps" class="box center" style="text-align:right;line-height:1.7;"></ol>
   </section>
 
-  <!-- الأقسام -->
   <section id="secEx1" class="sec card pad"><h2 class="section">مثال تطبيقي</h2><div id="ex1" class="box"></div></section>
   <section id="secEx2" class="sec card pad"><h2 class="section">مثال آخر</h2><div id="ex2" class="box"></div></section>
   <section id="secPractice" class="sec card pad"><h2 class="section">اختبر فهمي</h2><div id="practice" class="box"></div></section>
   <section id="secSolve" class="sec card pad"><h2 class="section">الحل الصحيح</h2><div id="solve" class="box"></div></section>
 
   <footer>
+    <div>مساعد ذكي لتبسيط قوانين الفيزياء لطلاب الثانوية والجامعة</div>
     <div class="brandline">
       <span class="leaf-dots" aria-hidden="true"></span>
-      <span class="quote">لكلِّ شيءٍ صعبٍ في حياتنا حل ✨🌿</span>
-      <span class="leaf-dots" aria-hidden="true"></span>
+      <span class="quote">لكلِّ شيءٍ صعبٍ في حياتنا حلٌّ 🌟🌟</span>
     </div>
     <div class="sig">ندى محمد المجيرش</div>
   </footer>
 </div>
 
-<!-- MathJax -->
 <script>
-window.MathJax={tex:{
-  inlineMath:[['$','$'],['\\(','\\)']],
-  displayMath:[['$$','$$'],['\\[','\\]']],
-  processEscapes:true,
-  packages:{'[+]':['noerrors','noundefined']}
-}};
-</script>
-<script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
-
-<!-- أدوات العرض (كما هي) -->
-<script>
+/* تنظيف الوحدات من \mathrm{} لعرضها كنص */
 function cleanUnits(s){
   s=(s||'')+''; s=s.replace(/\\mathrm\s*\{([^}]+)\}/g,'$1'); s=s.replace(/^\s*\${1,2}|\${1,2}\s*$/g,'');
   return s.trim();
@@ -198,13 +185,7 @@ function cleanUnits(s){
 <script>
 (function(){
   const H=window.MATH.htmlWithMath;
-
-  function renderFormulasBox(list=[]){
-    const box=document.createElement('div'); box.className='box center';
-    list.forEach(f=>{ const d=document.createElement('div'); d.className='math-block';
-      const eq=/^\$\$/.test(f)?f:`$$${(f||'').replace(/^\$|\$$/g,'')}$$`; d.innerHTML=H(eq); box.appendChild(d); });
-    return box;
-  }
+  
   function renderGivenUnknowns(givens=[], unknowns=[]){
     const tbl=document.createElement('table'); tbl.className='table center';
     tbl.innerHTML=`<thead><tr><th>الرمز</th><th>القيمة</th><th>الوحدة</th><th>الوصف</th></tr></thead>`;
@@ -226,6 +207,14 @@ function cleanUnits(s){
     }
     tbl.appendChild(tb); return tbl;
   }
+  
+  function renderFormulasBox(list=[]){
+    const box=document.createElement('div'); box.className='box center';
+    list.forEach(f=>{ const d=document.createElement('div'); d.className='math-block';
+      const eq=/^\$\$/.test(f)?f:`$$${(f||'').replace(/^\$|\$$/g,'')}$$`; d.innerHTML=H(eq); box.appendChild(d); });
+    return box;
+  }
+
   function renderCase(containerId, data){
     const root=document.getElementById(containerId); root.innerHTML=''; const frag=document.createDocumentFragment();
     const s1=document.createElement('div'); s1.innerHTML=`<div class="sub">المسألة</div><div class="box">${H(data.scenario||data.question||'—')}</div>`; frag.appendChild(s1);
@@ -234,7 +223,8 @@ function cleanUnits(s){
     const s3=document.createElement('div'); s3.className='sub'; s3.textContent='القانون/القوانين المستخدمة';
     const b3=renderFormulasBox(data.formulas||(data.formula?[data.formula]:[])); frag.appendChild(s3); frag.appendChild(b3);
     const s4=document.createElement('div'); s4.className='sub'; s4.textContent='الحل والخطوات';
-    const b4=document.createElement('div'); b4.className='box'; const ol=document.createElement('ol');
+    const b4=document.createElement('div'); b4.className='box';
+    const ol=document.createElement('ol');
     (data.steps||[]).forEach(step=>{ const li=document.createElement('li'); li.innerHTML=H(step); ol.appendChild(li); });
     if((data.steps||[]).length) b4.appendChild(ol);
     if(data.result){ const hr=document.createElement('div'); hr.style.height='1px'; hr.style.background='color-mix(in oklab, var(--ring) 70%, transparent 30%)'; hr.style.margin='8px 0';
@@ -248,7 +238,7 @@ function cleanUnits(s){
     const expF=document.getElementById('expFormulas'); expF.innerHTML=''; expF.appendChild(renderFormulasBox(d.formulas||[]));
     const tb=document.getElementById('symbols'); tb.innerHTML='';
     (d.symbols||[]).forEach(s=>{ const tr=document.createElement('tr');
-      tr.innerHTML=`<td>${H(s.desc)}</td><td>${H(s.symbol)}</td><td class="unit-cell">${cleanUnits(s.unit)}</td>`; tb.appendChild(tr); });
+      tr.innerHTML=`<td>${H(s.desc)}</td><td>${H(s.symbol)}</td><td class="unit-cell">${H(s.unit)}</td>`; tb.appendChild(tr); });
     const st=document.getElementById('steps'); st.innerHTML=''; (d.steps||[]).forEach(s=>{const li=document.createElement('li'); li.innerHTML=H(s); st.appendChild(li);});
     document.getElementById('secExplain').style.display='block'; if(window.MathJax?.typesetPromise) MathJax.typesetPromise();
   }
@@ -257,27 +247,20 @@ function cleanUnits(s){
 </script>
 
 <script>
-/* تبديل الثيم */
-(function(){
-  const btn=document.getElementById('themeBtn');
-  function applyTheme(){
-    const dark=localStorage.getItem('theme')==='dark';
-    document.documentElement.classList.toggle('dark',dark);
-    btn.textContent=dark?'الوضع الفاتح':'الوضع الداكن';
-  }
-  btn.addEventListener('click',()=>{ const now=localStorage.getItem('theme')==='dark'?'light':'dark'; localStorage.setItem('theme',now); applyTheme(); });
-  applyTheme();
-})();
-</script>
-
-<!-- ربط الأزرار مع دالة نتلايفي (نفس العمل السابق) -->
-<script>
 (function(){
   const $=id=>document.getElementById(id);
   const secs=['secExplain','secEx1','secEx2','secPractice','secSolve'];
   function hideAll(){ secs.forEach(id=>$(id).style.display='none'); const e=$('error'); e.style.display='none'; e.textContent=''; }
   function setBusy(t){ $('status').textContent=t||''; document.querySelectorAll('.btn').forEach(b=>b.disabled=!!t); }
   function showErr(m){ const e=$('error'); e.style.display='block'; e.textContent=m||'حدث خطأ غير متوقع.'; }
+
+  const btnTheme=$('themeBtn');
+  function applyTheme(){ const dark=localStorage.getItem('theme')==='dark';
+    document.documentElement.classList.toggle('dark',dark);
+    btnTheme.textContent=dark?'الوضع الفاتح':'الوضع الداكن';
+  }
+  btnTheme.addEventListener('click',()=>{ const now=localStorage.getItem('theme')==='dark'?'light':'dark'; localStorage.setItem('theme',now); applyTheme(); });
+  applyTheme();
 
   let LAST_PRACTICE_QUESTION='';
   const actionMap={ explain:'explain', ex1:'example', ex2:'example2', practice:'practice', solve:'solve' };
@@ -291,14 +274,23 @@ function cleanUnits(s){
       const res=await fetch('/.netlify/functions/anees',{method:'POST',headers:{'Content-Type':'application/json'},
         body:JSON.stringify({action:actionMap[action]||action,concept,question:(extra&&extra.question)||null})});
 
-      const txt=await res.text(); let json=null; try{ json=JSON.parse(txt); }catch(_){}
-      if(!res.ok){ throw new Error((json&&json.error)||txt.slice(0,300)||('HTTP '+res.status)); }
+      const txt = await res.text();
+      let json=null; try{ json=JSON.parse(txt); }catch(_){ /* إذا لم يكن JSON نظيف */ }
+
+      if(!res.ok){
+        const errMsg = (json&&json.error) ? json.error : (txt.slice(0,300)||('HTTP '+res.status));
+        throw new Error(errMsg);
+      }
       if(!json){ throw new Error('استجابة غير صالحة من الخادم.'); }
-      const payload=json.data||json; if(payload.error){ throw new Error(payload.error); }
+
+      const payload = json.data || json;
+      if(payload.error){ throw new Error(payload.error); }
       return payload;
 
-    }catch(err){ showErr(err.message||'خطأ غير متوقع.'); return null; }
-    finally{ setBusy(''); }
+    }catch(err){
+      showErr(err.message||'خطأ غير متوقع.');
+      return null;
+    }finally{ setBusy(''); }
   }
 
   $('btnExplain').addEventListener('click', async ()=>{ hideAll(); const d=await call('explain'); if(!d) return; UI.renderExplain(d,$('concept').value); });
