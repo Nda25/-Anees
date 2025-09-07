@@ -14,13 +14,15 @@ export default async (req) => {
     const j = await r.json().catch(()=>null);
     const raw = j?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
 
+    // Attempt to parse the raw text in three ways
     let data = tryParse(raw) || tryParse(extractJson(raw)) || tryParse(sanitizeJson(extractJson(raw)));
 
+    // If parsing fails, try to ask the model to fix the JSON
     if (!data) {
       const fixPayload = {
         contents: [{ role:"user", parts:[{ text:
-`أصلحي JSON التالي ليكون صالحًا 100٪ ويطابق المخطط المطلوب.
-أعيدي الكائن فقط بلا أي كودات أو شرح:
+`أصلح JSON التالي ليكون صالحًا 100٪ ويطابق المخطط المطلوب.
+أعد الكائن فقط بلا أي كود أو شرح.
 
 ${raw}` }]}],
         generationConfig:{ temperature:0.2, response_mime_type:"application/json" }
@@ -33,31 +35,23 @@ ${raw}` }]}],
 
     if (!data) return json({ ok:false, error:"Bad JSON from model" }, 502);
 
-    // معالجة الرموز والترقيم بشكل أفضل
+    // Ensure all symbols and units are wrapped in LaTeX delimiters ($)
+    const wrapMathSymbols = (arr) => arr.map(item => ({
+        ...item,
+        symbol: item.symbol && !item.symbol.startsWith('$') ? `$${item.symbol}$` : item.symbol,
+        unit: item.unit && !item.unit.startsWith('$') ? `$${item.unit}$` : item.unit
+    }));
+    
+    if (data.symbols) data.symbols = wrapMathSymbols(data.symbols);
+    if (data.givens) data.givens = wrapMathSymbols(data.givens);
+    if (data.unknowns) data.unknowns = wrapMathSymbols(data.unknowns);
+
+    // Remove list numbering from steps
     if (data.steps) {
         data.steps = data.steps.map(s => s.replace(/^\s*\d+\.\s*/, '').trim());
     }
-    if (data.symbols) {
-        data.symbols = data.symbols.map(s => ({
-            ...s,
-            symbol: s.symbol.startsWith('$') && s.symbol.endsWith('$') ? s.symbol : `$${s.symbol}$`
-        }));
-    }
-    if (data.givens) {
-        data.givens = data.givens.map(g => ({
-            ...g,
-            symbol: g.symbol.startsWith('$') && g.symbol.endsWith('$') ? g.symbol : `$${g.symbol}$`
-        }));
-    }
-    if (data.unknowns) {
-        data.unknowns = data.unknowns.map(u => ({
-            ...u,
-            symbol: u.symbol.startsWith('$') && u.symbol.endsWith('$') ? u.symbol : `$${u.symbol}$`
-        }));
-    }
 
     tidyPayloadNumbers(data);
-
     return json({ ok:true, data });
 
   } catch (e) {
