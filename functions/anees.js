@@ -10,68 +10,98 @@ export default async (req) => {
 
     const { url, payload } = buildCall(GEMINI_API_KEY, action, subject, concept, question);
 
-    const r = await fetch(url, { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(payload) });
-    const j = await r.json().catch(()=>null);
+    // طلب النموذج
+    const r = await fetch(url, {
+      method:"POST",
+      headers:{ "Content-Type":"application/json" },
+      body: JSON.stringify(payload)
+    });
+
+    // لو فشل HTTP، نعيد نص واضح بدل Bad JSON
+    if (!r.ok) {
+      const t = await r.text().catch(()=> "");
+      return json({ ok:false, error: `HTTP ${r.status} — ${t.slice(0,200)}` }, r.status);
+    }
+
+    const j   = await r.json().catch(()=>null);
     const raw = j?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
 
-    // ↓↓↓ توسيع محاولات فك JSON بإضافة parseLooseJson ↓↓↓
+    // --------- محاولات فك JSON (طبقات متعددة) ---------
     let data =
       tryParse(raw) ||
       tryParse(extractJson(raw)) ||
       tryParse(sanitizeJson(extractJson(raw))) ||
       parseLooseJson(raw);
 
+    // إنقاذ خاص لـ practice لو رجع سطر نصي فقط
+    if (!data && action === "practice" && typeof raw === "string" && raw.trim()) {
+      const only = raw.trim().replace(/^```(?:json)?/i,'').replace(/```$/,'').trim();
+      // إن كان فقط نص سؤال بلا أقواس
+      if (!only.trim().startsWith("{")) {
+        data = { question: only.replace(/^["']|["']$/g,'') };
+      }
+    }
+
+    // محاولة إصلاح ثانية عبر النموذج
     if (!data) {
       const fixPayload = {
-        contents: [{ role:"user", parts:[{ text:
+        contents: [{
+          role:"user",
+          parts:[{ text:
 `أصلحي JSON التالي ليكون صالحًا 100٪ ويطابق المخطط المطلوب.
 أعيدي الكائن فقط بلا أي كودات أو شرح:
 
-${raw}` }]}],
+${raw}` }]
+        }],
         generationConfig:{ temperature:0.2, response_mime_type:"application/json" }
       };
-      const rr = await fetch(url, { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(fixPayload) });
-      const jj = await rr.json().catch(()=>null);
+      const rr  = await fetch(url, { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(fixPayload) });
+      if (!rr.ok) {
+        const t = await rr.text().catch(()=> "");
+        return json({ ok:false, error:`HTTP ${rr.status} أثناء الإصلاح — ${t.slice(0,200)}` }, rr.status);
+      }
+      const jj  = await rr.json().catch(()=>null);
       const raw2 = jj?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
-
-      // ↓↓↓ نفس الشيء هنا نضيف parseLooseJson ↓↓↓
       data =
         tryParse(raw2) ||
         tryParse(extractJson(raw2)) ||
         tryParse(sanitizeJson(extractJson(raw2))) ||
         parseLooseJson(raw2);
+
+      // إنقاذ practice مرة ثانية
+      if (!data && action === "practice" && typeof raw2 === "string" && raw2.trim()) {
+        const only2 = raw2.trim().replace(/^```(?:json)?/i,'').replace(/```$/,'').trim();
+        if (!only2.trim().startsWith("{")) {
+          data = { question: only2.replace(/^["']|["']$/g,'') };
+        }
+      }
     }
 
-    if (!data) return json({ ok:false, error:"Bad JSON from model" }, 502);
-
-    // معالجة الرموز والترقيم بشكل أفضل (بدون تغيير السلوك المرئي)
-    if (data.steps) {
-      data.steps = data.steps.map(s => (s ?? "").toString().replace(/^\s*\d+\.\s*/, '').trim());
+    if (!data) {
+      // نعطي سبب واضح بدل "Bad JSON" فقط
+      return json({ ok:false, error:"Bad JSON from model", snippet: (raw||"").slice(0,220) }, 502);
     }
 
-    // التفاف آمن للرموز لتجنب startsWith على undefined
-    if (data.symbols) {
-      data.symbols = data.symbols.map(s => {
-        const sym = (s?.symbol ?? '') + '';
-        const wrapped = sym && /^\$.*\$$/.test(sym) ? sym : (sym ? `$${sym}$` : sym);
-        return { ...s, symbol: wrapped };
-      });
-    }
-    if (data.givens) {
-      data.givens = data.givens.map(g => {
-        const sym = (g?.symbol ?? '') + '';
-        const wrapped = sym && /^\$.*\$$/.test(sym) ? sym : (sym ? `$${sym}$` : sym);
-        return { ...g, symbol: wrapped };
-      });
-    }
-    if (data.unknowns) {
-      data.unknowns = data.unknowns.map(u => {
-        const sym = (u?.symbol ?? '') + '';
-        const wrapped = sym && /^\$.*\$$/.test(sym) ? sym : (sym ? `$${sym}$` : sym);
-        return { ...u, symbol: wrapped };
-      });
+    // --------- تنعيم/ضمان شكل الحمولة ---------
+    data = coerceShape(action, data);
+
+    // خطوات: إزالة ترقيم بادئ "1. " إن وجد
+    if (Array.isArray(data.steps)) {
+      data.steps = data.steps.map(s => (s ?? "").toString().replace(/^\s*\d+[\.\)\-\:]\s*/,'').trim()).filter(Boolean);
     }
 
+    // التفاف آمن للرموز لتفادي startsWith على undefined
+    if (Array.isArray(data.symbols)) {
+      data.symbols = data.symbols.map(s => wrapSymbol(s));
+    }
+    if (Array.isArray(data.givens)) {
+      data.givens = data.givens.map(g => wrapSymbol(g));
+    }
+    if (Array.isArray(data.unknowns)) {
+      data.unknowns = data.unknowns.map(u => wrapSymbol(u));
+    }
+
+    // تحويل أرقام scientific إلى LaTeX حيث يلزم
     tidyPayloadNumbers(data);
 
     return json({ ok:true, data });
@@ -90,6 +120,7 @@ function json(obj, status=200){
 }
 async function safeJson(req){ try{ return await req.json(); }catch{ return {}; } }
 function tryParse(s){ try{ return s && JSON.parse(s); }catch{ return null; } }
+
 function extractJson(text){
   if (!text) return "";
   let t = (text+"")
@@ -114,14 +145,20 @@ function sanitizeJson(t){
     .trim();
 }
 
-// NEW: محاولة أخيرة لفك JSON بمفاتيح غير مقتبسة/Markdown خفيف
+// اقتباس مفاتيح غير مقتبسة إن وُجدت + تنظيف Markdown بسيط
 function parseLooseJson(s){
   if(!s) return null;
   let t = extractJson(s);
   if(!t) return null;
-  // اقتباس مفاتيح عربية/لاتينية غير مقتبسة:  key:  → "key":
-  t = t.replace(/([{,]\s*)([A-Za-z\u0600-\u06FF_][\w\u0600-\u06FF_]*)(\s*):/g, '$1"$2"$3:');
+  t = t.replace(/([{,]\s*)([A-Za-z\u0600-\u06FF_][\w\u0600-\u06FF_]*)(\s*):/g, '$1"$2"$3:'); // "key":
   try { return JSON.parse(t); } catch { return null; }
+}
+
+// لفّ الرمز بدولارين إن لم يكن ملفوفًا
+function wrapSymbol(x){
+  const sym = (((x||{}).symbol) ?? '') + '';
+  const wrapped = sym && /^\$.*\$$/.test(sym) ? sym : (sym ? `$${sym}$` : sym);
+  return { ...x, symbol: wrapped };
 }
 
 function sciToLatex(v){
@@ -140,6 +177,45 @@ function tidyPayloadNumbers(obj){
   };
   if (Array.isArray(obj.givens))   obj.givens   = obj.givens.map(g => ({ ...g, value: fix(g.value) }));
   if (Array.isArray(obj.unknowns)) obj.unknowns = obj.unknowns.map(u => ({ ...u }));
+}
+
+// ضمان الشكل المتوقع بحسب نوع الإجراء، حتى لو نسي النموذج حقولًا
+function coerceShape(action, obj){
+  const safeStr = v => (typeof v === 'string' ? v : (v==null ? '' : String(v)));
+  const safeArr = a => Array.isArray(a) ? a : [];
+  if (action === 'explain') {
+    return {
+      title:    safeStr(obj.title),
+      overview: safeStr(obj.overview),
+      symbols:  safeArr(obj.symbols).map(x => ({
+        desc:  safeStr(x?.desc),
+        symbol:safeStr(x?.symbol),
+        unit:  safeStr(x?.unit)
+      })),
+      formulas: safeArr(obj.formulas).map(safeStr),
+      steps:    safeArr(obj.steps).map(safeStr)
+    };
+  }
+  if (action === 'practice') {
+    return { question: safeStr(obj.question || obj.prompt || obj.text || '') };
+  }
+  // example / example2 / solve
+  return {
+    scenario: safeStr(obj.scenario || obj.question || ''),
+    givens:   safeArr(obj.givens).map(x => ({
+      symbol: safeStr(x?.symbol),
+      value:  safeStr(x?.value),
+      unit:   safeStr(x?.unit),
+      desc:   safeStr(x?.desc)
+    })),
+    unknowns: safeArr(obj.unknowns).map(x => ({
+      symbol: safeStr(x?.symbol),
+      desc:   safeStr(x?.desc)
+    })),
+    formulas: safeArr(obj.formulas || (obj.formula ? [obj.formula] : [])).map(safeStr),
+    steps:    safeArr(obj.steps).map(safeStr),
+    result:   safeStr(obj.result)
+  };
 }
 
 function buildCall(key, action, subject, concept, question){
@@ -172,7 +248,6 @@ function buildCall(key, action, subject, concept, question){
     result: "$$a = 2\\,\\mathrm{m/s^2}$$"
   };
 
-  // دَفعات مُهيّأة حسب نوع الطلب
   let temp = 0.2;
   let prompt = header;
 
@@ -193,7 +268,7 @@ ${JSON.stringify(exampleSchema)}
 - لا تكتب عبارة "سؤال صحيح وواضح".
 - اجعل خطوات الحل مفصلة وتشرح عملية التعويض العددي.`;
   } else if (action === "example2") {
-    temp = 0.5;  // أصعب بدرجة
+    temp = 0.5;
     prompt += `
 أعِد JSON يمثل مثالًا آخر "أصعب بقليل" من المثال الأول، وبمجهول مختلف.
 النموذج:
@@ -223,7 +298,14 @@ ${JSON.stringify(exampleSchema)}
 
   const payload = {
     contents:[{ role:"user", parts:[{ text: prompt }]}],
-    generationConfig:{ temperature: temp, maxOutputTokens: 900, response_mime_type:"application/json" }
+    generationConfig:{
+      temperature: temp,
+      topP: 0.9,
+      candidateCount: 1,
+      maxOutputTokens: 1100,          // هام لتفادي قصّ JSON
+      response_mime_type:"application/json",
+      stopSequences:["```","\n\n\n"]  // تقليل كودات ماركداون
+    }
   };
 
   return { url: baseUrl, payload };
