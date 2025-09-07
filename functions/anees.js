@@ -10,98 +10,69 @@ export default async (req) => {
 
     const { url, payload } = buildCall(GEMINI_API_KEY, action, subject, concept, question);
 
-    // طلب النموذج
-    const r = await fetch(url, {
-      method:"POST",
-      headers:{ "Content-Type":"application/json" },
-      body: JSON.stringify(payload)
+    // ← استخدام postWithRetry بدل fetch المباشر
+    const j = await postWithRetry(url, payload).catch(err => {
+      return { __http_error: String(err.message || err) };
     });
-
-    // لو فشل HTTP، نعيد نص واضح بدل Bad JSON
-    if (!r.ok) {
-      const t = await r.text().catch(()=> "");
-      return json({ ok:false, error: `HTTP ${r.status} — ${t.slice(0,200)}` }, r.status);
+    if (j && j.__http_error) {
+      return json({ ok:false, error: j.__http_error }, 429);
     }
 
-    const j   = await r.json().catch(()=>null);
     const raw = j?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
 
-    // --------- محاولات فك JSON (طبقات متعددة) ---------
     let data =
       tryParse(raw) ||
       tryParse(extractJson(raw)) ||
       tryParse(sanitizeJson(extractJson(raw))) ||
       parseLooseJson(raw);
 
-    // إنقاذ خاص لـ practice لو رجع سطر نصي فقط
-    if (!data && action === "practice" && typeof raw === "string" && raw.trim()) {
-      const only = raw.trim().replace(/^```(?:json)?/i,'').replace(/```$/,'').trim();
-      // إن كان فقط نص سؤال بلا أقواس
-      if (!only.trim().startsWith("{")) {
-        data = { question: only.replace(/^["']|["']$/g,'') };
-      }
-    }
-
-    // محاولة إصلاح ثانية عبر النموذج
     if (!data) {
       const fixPayload = {
-        contents: [{
-          role:"user",
-          parts:[{ text:
+        contents: [{ role:"user", parts:[{ text:
 `أصلحي JSON التالي ليكون صالحًا 100٪ ويطابق المخطط المطلوب.
 أعيدي الكائن فقط بلا أي كودات أو شرح:
 
-${raw}` }]
-        }],
+${raw}` }]}],
         generationConfig:{ temperature:0.2, response_mime_type:"application/json" }
       };
-      const rr  = await fetch(url, { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(fixPayload) });
-      if (!rr.ok) {
-        const t = await rr.text().catch(()=> "");
-        return json({ ok:false, error:`HTTP ${rr.status} أثناء الإصلاح — ${t.slice(0,200)}` }, rr.status);
+
+      const jj = await postWithRetry(url, fixPayload).catch(err => {
+        return { __http_error: String(err.message || err) };
+      });
+      if (jj && jj.__http_error) {
+        return json({ ok:false, error: jj.__http_error }, 429);
       }
-      const jj  = await rr.json().catch(()=>null);
+
       const raw2 = jj?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
       data =
         tryParse(raw2) ||
         tryParse(extractJson(raw2)) ||
         tryParse(sanitizeJson(extractJson(raw2))) ||
         parseLooseJson(raw2);
-
-      // إنقاذ practice مرة ثانية
-      if (!data && action === "practice" && typeof raw2 === "string" && raw2.trim()) {
-        const only2 = raw2.trim().replace(/^```(?:json)?/i,'').replace(/```$/,'').trim();
-        if (!only2.trim().startsWith("{")) {
-          data = { question: only2.replace(/^["']|["']$/g,'') };
-        }
-      }
     }
 
-    if (!data) {
-      // نعطي سبب واضح بدل "Bad JSON" فقط
-      return json({ ok:false, error:"Bad JSON from model", snippet: (raw||"").slice(0,220) }, 502);
+    if (!data) return json({ ok:false, error:"Bad JSON from model" }, 502);
+
+    // معالجة الرموز والترقيم
+    if (data.steps) {
+      data.steps = data.steps.map(s => (s ?? "").toString().replace(/^\s*\d+\.\s*/, '').trim());
     }
 
-    // --------- تنعيم/ضمان شكل الحمولة ---------
-    data = coerceShape(action, data);
+    const wrapSym = (sym) => {
+      sym = (sym ?? '') + '';
+      return sym && /^\$.*\$$/.test(sym) ? sym : (sym ? `$${sym}$` : sym);
+    };
 
-    // خطوات: إزالة ترقيم بادئ "1. " إن وجد
-    if (Array.isArray(data.steps)) {
-      data.steps = data.steps.map(s => (s ?? "").toString().replace(/^\s*\d+[\.\)\-\:]\s*/,'').trim()).filter(Boolean);
+    if (data.symbols) {
+      data.symbols = data.symbols.map(s => ({ ...s, symbol: wrapSym(s?.symbol) }));
     }
-
-    // التفاف آمن للرموز لتفادي startsWith على undefined
-    if (Array.isArray(data.symbols)) {
-      data.symbols = data.symbols.map(s => wrapSymbol(s));
+    if (data.givens) {
+      data.givens = data.givens.map(g => ({ ...g, symbol: wrapSym(g?.symbol) }));
     }
-    if (Array.isArray(data.givens)) {
-      data.givens = data.givens.map(g => wrapSymbol(g));
-    }
-    if (Array.isArray(data.unknowns)) {
-      data.unknowns = data.unknowns.map(u => wrapSymbol(u));
+    if (data.unknowns) {
+      data.unknowns = data.unknowns.map(u => ({ ...u, symbol: wrapSym(u?.symbol) }));
     }
 
-    // تحويل أرقام scientific إلى LaTeX حيث يلزم
     tidyPayloadNumbers(data);
 
     return json({ ok:true, data });
@@ -120,7 +91,6 @@ function json(obj, status=200){
 }
 async function safeJson(req){ try{ return await req.json(); }catch{ return {}; } }
 function tryParse(s){ try{ return s && JSON.parse(s); }catch{ return null; } }
-
 function extractJson(text){
   if (!text) return "";
   let t = (text+"")
@@ -144,23 +114,13 @@ function sanitizeJson(t){
     .replace(/\s+\n/g,"\n")
     .trim();
 }
-
-// اقتباس مفاتيح غير مقتبسة إن وُجدت + تنظيف Markdown بسيط
 function parseLooseJson(s){
   if(!s) return null;
   let t = extractJson(s);
   if(!t) return null;
-  t = t.replace(/([{,]\s*)([A-Za-z\u0600-\u06FF_][\w\u0600-\u06FF_]*)(\s*):/g, '$1"$2"$3:'); // "key":
+  t = t.replace(/([{,]\s*)([A-Za-z\u0600-\u06FF_][\w\u0600-\u06FF_]*)(\s*):/g, '$1"$2"$3:');
   try { return JSON.parse(t); } catch { return null; }
 }
-
-// لفّ الرمز بدولارين إن لم يكن ملفوفًا
-function wrapSymbol(x){
-  const sym = (((x||{}).symbol) ?? '') + '';
-  const wrapped = sym && /^\$.*\$$/.test(sym) ? sym : (sym ? `$${sym}$` : sym);
-  return { ...x, symbol: wrapped };
-}
-
 function sciToLatex(v){
   const s = (v??"")+"";
   const m = s.match(/^\s*([+-]?\d+(?:\.\d+)?)e([+-]?\d+)\s*$/i);
@@ -179,43 +139,32 @@ function tidyPayloadNumbers(obj){
   if (Array.isArray(obj.unknowns)) obj.unknowns = obj.unknowns.map(u => ({ ...u }));
 }
 
-// ضمان الشكل المتوقع بحسب نوع الإجراء، حتى لو نسي النموذج حقولًا
-function coerceShape(action, obj){
-  const safeStr = v => (typeof v === 'string' ? v : (v==null ? '' : String(v)));
-  const safeArr = a => Array.isArray(a) ? a : [];
-  if (action === 'explain') {
-    return {
-      title:    safeStr(obj.title),
-      overview: safeStr(obj.overview),
-      symbols:  safeArr(obj.symbols).map(x => ({
-        desc:  safeStr(x?.desc),
-        symbol:safeStr(x?.symbol),
-        unit:  safeStr(x?.unit)
-      })),
-      formulas: safeArr(obj.formulas).map(safeStr),
-      steps:    safeArr(obj.steps).map(safeStr)
-    };
+// إعادة المحاولة مع backoff
+async function postWithRetry(url, payload, { tries = 3, baseDelayMs = 800 } = {}) {
+  let lastErr = null;
+  for (let i = 0; i < tries; i++) {
+    try {
+      const r = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type":"application/json" },
+        body: JSON.stringify(payload)
+      });
+      if (r.status === 429 || r.status === 503) {
+        const t = await r.text().catch(()=> "");
+        lastErr = new Error(`HTTP ${r.status} — ${t.slice(0,200)}`);
+      } else if (!r.ok) {
+        const t = await r.text().catch(()=> "");
+        throw new Error(`HTTP ${r.status} — ${t.slice(0,200)}`);
+      } else {
+        return await r.json();
+      }
+    } catch (e) {
+      lastErr = e;
+    }
+    const wait = baseDelayMs * Math.pow(2, i);
+    await new Promise(res => setTimeout(res, wait));
   }
-  if (action === 'practice') {
-    return { question: safeStr(obj.question || obj.prompt || obj.text || '') };
-  }
-  // example / example2 / solve
-  return {
-    scenario: safeStr(obj.scenario || obj.question || ''),
-    givens:   safeArr(obj.givens).map(x => ({
-      symbol: safeStr(x?.symbol),
-      value:  safeStr(x?.value),
-      unit:   safeStr(x?.unit),
-      desc:   safeStr(x?.desc)
-    })),
-    unknowns: safeArr(obj.unknowns).map(x => ({
-      symbol: safeStr(x?.symbol),
-      desc:   safeStr(x?.desc)
-    })),
-    formulas: safeArr(obj.formulas || (obj.formula ? [obj.formula] : [])).map(safeStr),
-    steps:    safeArr(obj.steps).map(safeStr),
-    result:   safeStr(obj.result)
-  };
+  throw lastErr || new Error("Request failed");
 }
 
 function buildCall(key, action, subject, concept, question){
@@ -232,9 +181,7 @@ function buildCall(key, action, subject, concept, question){
   const explainSchema = {
     title: "عنوان قصير",
     overview: "تعريف موجز واضح بالعربية",
-    symbols: [
-      { desc:"القوة", symbol:"F", unit:"\\mathrm{N}" }
-    ],
+    symbols: [ { desc:"القوة", symbol:"F", unit:"\\mathrm{N}" } ],
     formulas: ["$$F=ma$$"],
     steps: ["١- استخراج المعطيات","٢- اختيار القانون","٣- التعويض والحساب"]
   };
@@ -298,14 +245,7 @@ ${JSON.stringify(exampleSchema)}
 
   const payload = {
     contents:[{ role:"user", parts:[{ text: prompt }]}],
-    generationConfig:{
-      temperature: temp,
-      topP: 0.9,
-      candidateCount: 1,
-      maxOutputTokens: 1100,          // هام لتفادي قصّ JSON
-      response_mime_type:"application/json",
-      stopSequences:["```","\n\n\n"]  // تقليل كودات ماركداون
-    }
+    generationConfig:{ temperature: temp, maxOutputTokens: 900, response_mime_type:"application/json" }
   };
 
   return { url: baseUrl, payload };
