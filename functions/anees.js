@@ -1,8 +1,17 @@
-// functions/anees.js
+// /netlify/functions/anees.js
+// ============================================================================
+// دالة Netlify تُولّد بيانات الفيزياء بصيغة JSON صالحة ومُنسَّقة للواجهة.
+// - ثلاث طبقات حماية ضد Bad JSON (توليد صارم + إعادة صياغة + استخراج/تعقيم).
+// - توحيد/تجميل القيم: لفّ الرموز والوحدات بـ LaTeX، تحويل e-notation إلى a×10^n.
+// - ضمان أن لكل صفحة نفس البنية: scenario → givens/unknowns → formulas → steps → result.
+// ============================================================================
+
 export default async (req) => {
   try {
     const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-    if (!GEMINI_API_KEY) return send({ ok: false, error: "Missing GEMINI_API_KEY" }, 500);
+    if (!GEMINI_API_KEY) {
+      return send({ ok: false, error: "Missing GEMINI_API_KEY" }, 500);
+    }
 
     const body = await safeJson(req);
     const {
@@ -11,100 +20,106 @@ export default async (req) => {
       concept = "",
       question = ""
     } = body || {};
-    if (!concept) return send({ ok: false, error: "أدخلي اسم القانون/المفهوم." }, 400);
 
-    // نبني البرومبت
+    if (!concept) {
+      return send({ ok: false, error: "أدخل/ي اسم القانون أو المفهوم." }, 400);
+    }
+
+    // 1) نبني البرومبت الدقيق وفق الإجراء المطلوب
     const prompt = buildPrompt(action, subject, concept, question);
 
     const url =
-      "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" +
-      process.env.GEMINI_API_KEY;
+      "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent"
+      + `?key=${process.env.GEMINI_API_KEY}`;
 
-    // الطلب الأساسي — نطلب JSON صِرف
-    const payload = {
+    // إعدادات توليد تحفّز JSON نظيف (Mime-Type + حرارة منخفضة)
+    const basePayload = {
       contents: [{ role: "user", parts: [{ text: prompt }]}],
       generationConfig: {
-        temperature: 0.2,
+        temperature: 0.15,
         topP: 0.9,
         candidateCount: 1,
-        maxOutputTokens: 1000,
-        response_mime_type: "application/json"
-      },
-      // نقلّل من تدخلات السلامة التي قد تغيّر البنية
-      safetySettings: []
+        maxOutputTokens: 900,
+        response_mime_type: "application/json", // ← أهم سطر لإجبار JSON
+        stopSequences: ["```", "\n\n\n"]
+      }
     };
 
-    let raw = await callGemini(url, payload);
+    // 2) الطلب الأول
+    let raw = await callGemini(url, basePayload);
     let data = parseAsJson(raw);
 
-    // محاولة إصلاح رقم 1: اقتطاع أول {...} وآخره
-    if (!data) {
-      const extracted = extractJson(raw);
-      data = parseAsJson(extracted) || parseAsJson(sanitizeJson(extracted));
-    }
-
-    // محاولة إصلاح رقم 2: نطلب من النموذج تصحيح النص إلى JSON فقط
+    // 3) إن فشل: نرسل نص “أعيدي صياغة إلى JSON صالح 100%”
     if (!data) {
       const fixPayload = {
         contents: [{
           role: "user",
           parts: [{
             text:
-`أعيدي صياغة المُدخل التالي إلى كائن JSON صالح 100٪ يطابق أحد المخططات المحدّدة. 
-أعيدي الكائن فقط، بدون أي نص خارجي أو Markdown.
+`أعيدي صياغة المحتوى التالي إلى كائن JSON صالح 100٪ يطابق المخطط المطلوب تمامًا.
+أعيدي الكائن فقط، بدون أي نص خارجي، وبدون Markdown.
 
 ${raw}`
           }]
         }],
-        generationConfig: { temperature: 0.1, response_mime_type: "application/json" },
-        safetySettings: []
+        generationConfig: {
+          temperature: 0.05,
+          response_mime_type: "application/json"
+        }
       };
       raw = await callGemini(url, fixPayload);
-      const extracted = extractJson(raw);
-      data = parseAsJson(extracted) || parseAsJson(sanitizeJson(extracted)) || parseAsJson(raw);
+      data = parseAsJson(raw);
     }
 
+    // 4) إن فشل أيضًا: محاولة استخلاص أقواس JSON وتعقيمها محليًا
     if (!data) {
-      return send({ ok: false, error: "Bad JSON from model", snippet: (raw || "").slice(0, 400) }, 502);
+      const extracted = extractJson(raw);
+      data = parseAsJson(extracted) || parseAsJson(sanitizeJson(extracted));
     }
 
-    // نضمن الحقول الأساسية حسب الإجراء
-    normalizeByAction(action, data);
+    // لو مازال فشل: نعيد خطأ واضح
+    if (!data) {
+      const snippet = (raw || "").slice(0, 350);
+      return send({ ok: false, error: "Bad JSON from model", snippet }, 502);
+    }
 
-    // تنظيف الوحدات من \mathrm{}
-    stripMathrmUnits(data);
+    // 5) تطبيع البنية: تأكد من الحقول، تحويل "formula" إلى "formulas" إن لزم
+    normalizeSchema(data, action);
 
-    // تغليف الرموز بـ $...$ (فقط الرموز)
-    wrapLatexSymbols(data, ["symbols", "givens", "unknowns"]);
-
-    // تحويل أرقام e-notation إلى LaTeX
-    fixSciNumbers(data);
-
-    // تنعيم خطوات مرقّمة ترجع من النموذج
+    // 6) تنظيف الخطوات (إزالة ترقيم يبدأ به النص)
     if (Array.isArray(data.steps)) {
       data.steps = data.steps
-        .map(s => (s || "").toString().replace(/^\s*\d+[\).\-\:]\s*/, "").trim())
+        .map(s => (s || "").toString().replace(/^\s*\d+[\)\.\:\-]\s*/, "").trim())
         .filter(Boolean);
     }
 
+    // 7) لفّ الرموز بـ LaTeX إن لم تكن ملفوفة مسبقًا
+    wrapLatexSymbols(data, ["symbols", "givens", "unknowns"]);
+
+    // 8) تحويل e-notation إلى a×10^n (LaTeX) في القيم
+    fixSciNumbers(data);
+
+    // 9) لفّ الوحدات كلها داخل $...$ لضمان عرضها رياضيًا
+    ensureUnitsLatex(data);
+
+    // 10) إرجاع الحمولة النهائية الجاهزة للواجهة
     return send({ ok: true, data });
+
   } catch (err) {
     return send({ ok: false, error: err?.message || "Unexpected error" }, 500);
   }
 };
 
-/* ----------------- Helpers ----------------- */
+/* ============================ أدوات أساسية ============================ */
 function send(obj, status = 200) {
   return new Response(JSON.stringify(obj), {
     status,
     headers: { "Content-Type": "application/json; charset=utf-8" }
   });
 }
-
 async function safeJson(req) {
   try { return await req.json(); } catch { return {}; }
 }
-
 async function callGemini(url, payload) {
   const r = await fetch(url, {
     method: "POST",
@@ -113,17 +128,18 @@ async function callGemini(url, payload) {
   });
   if (!r.ok) {
     const t = await r.text().catch(() => "");
+    // نعيد رسالة مفيدة بدل صمت
     throw new Error(`HTTP ${r.status} — ${t.slice(0, 200)}`);
   }
   const j = await r.json().catch(() => null);
-  // Gemini يرجع النص في candidates[0].content.parts[0].text
+  // المسار القياسي لاستخراج النص من رد Gemini
   return j?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
 }
-
 function parseAsJson(s) {
   try {
     if (!s) return null;
     let t = (s + "").trim();
+    // إزالة أي تعليم Markdown
     t = t.replace(/^```json/i, "```")
          .replace(/^```/, "")
          .replace(/```$/, "")
@@ -131,20 +147,20 @@ function parseAsJson(s) {
     return JSON.parse(t);
   } catch { return null; }
 }
-
 function extractJson(text) {
   if (!text) return "";
   let t = (text + "")
     .replace(/\uFEFF/g, "")
     .replace(/[\u200E\u200F\u202A-\u202E]/g, "")
+    .trim()
     .replace(/^```json/i, "```")
     .replace(/^```/, "")
     .replace(/```$/, "")
     .trim();
   const a = t.indexOf("{"), b = t.lastIndexOf("}");
-  return (a >= 0 && b > a) ? t.slice(a, b + 1) : t;
+  if (a >= 0 && b > a) t = t.slice(a, b + 1);
+  return t;
 }
-
 function sanitizeJson(t) {
   return (t || "")
     .replace(/[“”]/g, '"')
@@ -155,24 +171,53 @@ function sanitizeJson(t) {
     .trim();
 }
 
-// إزالة \mathrm{...} من الوحدات أينما ظهرت
-function stripMathrmUnits(obj) {
-  const clean = (u) => (u || "").toString().replace(/\\mathrm\s*\{([^}]+)\}/g, "$1").trim();
-  if (Array.isArray(obj.symbols)) obj.symbols = obj.symbols.map(x => ({ ...x, unit: clean(x.unit) }));
-  if (Array.isArray(obj.givens))  obj.givens  = obj.givens.map(x  => ({ ...x, unit: clean(x.unit) }));
-  if (Array.isArray(obj.unknowns)) obj.unknowns = obj.unknowns.map(x=> ({ ...x, unit: clean(x.unit) }));
+/* ======================= تطبيع البنية والمعطيات ======================= */
+// توحيد المخطط كي تفهمه الواجهة دومًا
+function normalizeSchema(d, action) {
+  // explain: نتأكد من الحقول
+  if (action === "explain") {
+    d.title   = (d.title   ?? "").toString().trim();
+    d.overview= (d.overview?? "").toString().trim();
+    if (!Array.isArray(d.formulas))   d.formulas = d.formula ? [d.formula] : [];
+    if (!Array.isArray(d.symbols))    d.symbols  = [];
+    if (!Array.isArray(d.steps))      d.steps    = [];
+    // عناصر الرموز ككائنات منظمة
+    d.symbols = d.symbols.map(s => ({
+      desc:   (s.desc   ?? s.description ?? s.name ?? "").toString(),
+      symbol: (s.symbol ?? s.sym ?? "").toString(),
+      unit:   (s.unit   ?? "").toString()
+    }));
+  } else {
+    // example/example2/solve
+    if (!Array.isArray(d.formulas)) d.formulas = d.formula ? [d.formula] : [];
+    if (!Array.isArray(d.givens))   d.givens  = [];
+    if (!Array.isArray(d.unknowns)) d.unknowns= [];
+    if (!Array.isArray(d.steps))    d.steps   = [];
+    d.scenario = (d.scenario ?? d.question ?? "").toString().trim();
+    d.result   = (d.result   ?? "").toString().trim();
+
+    d.givens   = d.givens.map(g => ({
+      symbol: (g.symbol ?? "").toString(),
+      value:  (g.value  ?? "").toString(),
+      unit:   (g.unit   ?? "").toString(),
+      desc:   (g.desc   ?? g.description ?? "").toString()
+    }));
+    d.unknowns = d.unknowns.map(u => ({
+      symbol: (u.symbol ?? "").toString(),
+      desc:   (u.desc   ?? u.description ?? "").toString()
+    }));
+  }
 }
 
+/* ======================= تحويل e-notation إلى LaTeX ======================= */
 function sciToLatex(v) {
   const s = (v ?? "") + "";
   const m = s.match(/^\s*([+-]?\d+(?:\.\d+)?)e([+-]?\d+)\s*$/i);
   if (!m) return s;
   const mant = m[1].replace(/^([+-]?)(\d+)\.0+$/, "$1$2");
-  const exp  = parseInt(m[2], 10);
+  const exp = parseInt(m[2], 10);
   return `$${mant}\\times10^{${exp}}$`;
 }
-
-// نطبّق التحويل فقط على "value" داخل givens/unknowns
 function fixSciNumbers(obj) {
   const fix = (x) => {
     if (typeof x === "number") return sciToLatex(x);
@@ -180,91 +225,107 @@ function fixSciNumbers(obj) {
     if (/^\s*[+-]?\d+(\.\d+)?e[+-]?\d+\s*$/i.test(sx)) return sciToLatex(sx);
     return x;
   };
-  if (Array.isArray(obj.givens))   obj.givens   = obj.givens.map(g => ({ ...g, value: fix(g.value) }));
-  if (Array.isArray(obj.unknowns)) obj.unknowns = obj.unknowns.map(u => ({ ...u, value: fix(u.value) }));
+  if (Array.isArray(obj.givens)) {
+    obj.givens = obj.givens.map(g => ({ ...g, value: fix(g.value) }));
+  }
+  if (Array.isArray(obj.unknowns)) {
+    obj.unknowns = obj.unknowns.map(u => ({ ...u, value: fix(u.value) }));
+  }
 }
 
-// نغلّف الرموز فقط بـ $...$ (الوحدات تظل نص عادي)
+/* ======================= لفّ الرموز والوحدات بـ LaTeX ======================= */
 function wrapLatexSymbols(obj, fields) {
+  const wrap = (s) => {
+    const t = (s ?? "") + "";
+    if (!t) return t;
+    return /^\$.*\$$/.test(t) ? t : `$${t}$`;
+  };
   fields.forEach(f => {
     const arr = obj[f];
     if (!Array.isArray(arr)) return;
     obj[f] = arr.map(item => {
-      const sym = ((item && item.symbol) || "") + "";
-      const already = /^\$.*\$$/.test(sym);
-      return { ...item, symbol: already ? sym : (sym ? `$${sym}$` : sym) };
+      const sym = (item?.symbol ?? "");
+      return { ...item, symbol: sym ? wrap(sym) : sym };
     });
   });
 }
-
-// ضمان البنية حسب الإجراء
-function normalizeByAction(action, d) {
-  if (action === "explain") {
-    d.title    = d.title    ?? "";
-    d.overview = d.overview ?? "";
-    d.formulas = Array.isArray(d.formulas) ? d.formulas : (d.formula ? [d.formula] : []);
-    d.symbols  = Array.isArray(d.symbols)  ? d.symbols  : [];
-    d.steps    = Array.isArray(d.steps)    ? d.steps    : [];
-  } else if (action === "practice") {
-    d.question = d.question ?? "";
-  } else { // example / example2 / solve
-    d.scenario = d.scenario ?? d.question ?? "";
-    d.givens   = Array.isArray(d.givens)   ? d.givens   : [];
-    d.unknowns = Array.isArray(d.unknowns) ? d.unknowns : [];
-    if (!Array.isArray(d.formulas) && d.formula) d.formulas = [d.formula];
-    d.formula  = d.formula ?? (Array.isArray(d.formulas) ? d.formulas[0] : "");
-    d.steps    = Array.isArray(d.steps)    ? d.steps    : [];
-    d.result   = d.result   ?? "";
+function ensureUnitsLatex(obj) {
+  const wrap = (u) => {
+    const s = (u ?? "").toString().trim();
+    if (!s) return s;
+    // لو جاءت على شكل \mathrm{} فقط، نغلفها بالدولار
+    return /^\$.*\$$/.test(s) ? s : `$${s}$`;
+  };
+  // explain
+  if (Array.isArray(obj.symbols)) {
+    obj.symbols = obj.symbols.map(it => ({ ...it, unit: wrap(it.unit) }));
+  }
+  // examples & solve
+  if (Array.isArray(obj.givens)) {
+    obj.givens = obj.givens.map(it => ({ ...it, unit: wrap(it.unit) }));
+  }
+  if (Array.isArray(obj.unknowns)) {
+    obj.unknowns = obj.unknowns.map(it => ({ ...it, unit: wrap(it.unit) }));
   }
 }
 
-/* --------------- Prompt Builder --------------- */
+/* ========================== مُنشئ البرومبت الدقيق ========================== */
 function buildPrompt(action, subject, concept, question) {
-  const SCHEMAS = `
-- explain: {"title":"string","overview":"string","symbols":[{"desc":"string","symbol":"string","unit":"string"}],"formulas":["string"],"steps":["string"]}
-- example/example2/solve: {"scenario":"string","givens":[{"symbol":"string","value":"string","unit":"string","desc":"string"}],"unknowns":[{"symbol":"string","desc":"string"}],"formula":"string","steps":["string"],"result":"string"}
-- practice: {"question":"string"}`;
-
   const BASE =
-`أنت خبيرة ${subject}.
-اكتبي بالعربية الفصحى فقط.
-التزمي STRICTLY بالمفهوم المطلوب: «${concept}».
-استخدمي LaTeX للمعادلات داخل $...$ أو $$...$$ للمعادلات فقط.
-اكتبي الوحدات كنص عادي (مثل m/s أو N·m^2/kg^2) بدون \\mathrm{}.
-الأعداد العلمية بصيغة a\\times10^{n} وليس e-notation.
-أعيدي كائن JSON صالح 100٪ يطابق أحد المخططات التالية فقط، وبدون أي نص خارجي أو Markdown.
-${SCHEMAS}
-`;
+`أنت خبيرة ${subject} بالعربية الفصحى فقط (ممنوع الإنجليزية).
+التزمي STRICTLY بالمفهوم: «${concept}».
+استخدمي LaTeX للرموز والمعادلات داخل $...$ أو $$...$$.
+الوحدات داخل \\mathrm{...} ثم لَفّيها كلها داخل $...$ (مثال: $\\mathrm{m/s^2}$).
+الأعداد العلمية بصيغة a\\times10^{n} فقط (ممنوع e-notation).
+أعيدي كائن JSON صالح 100٪ بدون أي Markdown أو نص زائد.
+
+المخططات المقبولة:
+- explain:
+  {"title":"string","overview":"string","symbols":[{"desc":"string","symbol":"string","unit":"string"}],"formulas":["string"],"steps":["string"]}
+
+- example / example2 / solve:
+  {"scenario":"string","givens":[{"symbol":"string","value":"string","unit":"string","desc":"string"}],"unknowns":[{"symbol":"string","desc":"string"}],"formulas":["string"],"steps":["string"],"result":"string"}
+
+- practice:
+  {"question":"string"}`;
+
+  // توجيهات مشتركة للمسائل
+  const EX_HINT =
+`- scenario: فقرتان عربيتان واضحتان (2–3 جمل) بلا معادلات، يصف الحالة بالأرقام والوحدات.
+- derivation: استخرجي المعطيات (givens) والمجهول (unknowns) من السيناريو نفسه.
+- formulas: القوانين المستخدمة (كل قانون سطر مستقل بصيغة $$...$$).
+- steps: خطوات قصيرة منفصلة (كل خطوة بند مستقل).
+- result: النتيجة النهائية بصيغة LaTeX بالرّمز والوحدة.`;
 
   if (action === "explain") {
     return `${BASE}
-أعيدي JSON لحالة explain فقط.
-- "formulas": معادلات صحيحة تخص «${concept}».
-- "symbols": صفوف مختصرة؛ الرمز (مثل v_0, a, g)؛ الوحدة نص عادي (kg, m/s^2).
-- "steps": نقاط قصيرة وواضحة.`;
+أعيدي explain فقط. اجعلي:
+- "title" اسم المفهوم.
+- "formulas" معادلات «${concept}» بصيغة $$...$$.
+- "symbols": عناصر على شكل (desc, symbol, unit).
+- "steps": نقاط إرشادية قصيرة.`;
   }
   if (action === "example") {
     return `${BASE}
-أعيدي JSON لحالة example.
-اختاري مجهولًا طبيعيًا من متغيّرات «${concept}»، بقيم منطقية ووحدات صحيحة.
-كل خطوة عنصر مستقل في "steps".`;
+أعيدي example فقط لمفهوم «${concept}».
+${EX_HINT}
+- اختاري مجهولًا شائعًا لهذا المفهوم.`;
   }
   if (action === "example2") {
     return `${BASE}
-أعيدي JSON لحالة example2.
-اختاري مجهولًا مختلفًا عن المثال السابق لنفس «${concept}».
-التزمي بالقانون الصحيح فقط. كل خطوة عنصر مستقل.`;
+أعيدي example2 فقط لنفس المفهوم «${concept}» مع مجهول مختلف عن المثال الأول.
+${EX_HINT}`;
   }
   if (action === "practice") {
     return `${BASE}
-أعيدي JSON لحالة practice فقط.
-اكتبي سؤال تدريب عربي من 2–3 جمل بقيم منطقية ووحدات صحيحة.`;
+أعيدي practice فقط.
+- "question": نص عربي كامل من سطرين يضم أرقامًا مع وحداتها (داخل LaTeX). لا تكتبي الحل.`;
   }
   if (action === "solve") {
     return `${BASE}
-أعيدي JSON لحالة solve (نفس بنية example).
-السؤال: ${question}
-نظّمي givens/unknowns بوحدات صحيحة، والمعادلات بصيغة LaTeX. اظهري النتيجة النهائية في "result".`;
+أعيدي solve فقط (نفس بنية example).
+السؤال:\n${question}
+${EX_HINT}`;
   }
   return `${BASE}\n{"error":"unknown action"}`;
 }
