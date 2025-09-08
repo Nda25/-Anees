@@ -1,5 +1,5 @@
 // functions/anees.js
-export default async (req) => {
+module.exports = async (req) => {
   try {
     const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
     if (!GEMINI_API_KEY) return json({ ok:false, error:"Missing GEMINI_API_KEY" }, 500);
@@ -266,13 +266,6 @@ ${JSON.stringify(EXPLAIN_SCHEMA)}`;
       maxOutputTokens: 900,
       response_mime_type: "application/json"
     }
-  };
-
-  return { url: baseUrl, payload };
-}
-  const payload = {
-    contents:[{ role:"user", parts:[{ text: prompt }]}],
-    generationConfig:{ temperature: temp, maxOutputTokens: 900, response_mime_type:"application/json" }
   };
 
   return { url: baseUrl, payload };
