@@ -143,15 +143,21 @@ function renderGivenUnknowns(givens=[], unknowns=[]){
 
 /** عرض “اشرح لي” */
 function renderExplain(d, concept){
-  $('exTitle').textContent = d.title || concept || '';
-  $('chip2').textContent   = concept || '';
-  $('overview').innerHTML  = MATH.htmlWithMath(d.overview||'—');
+  // نظّفي كل صناديق القسم قبل التعبئة
+  ['overview','expFormulas','symbols','steps'].forEach(id=>{
+    const el = document.getElementById(id);
+    if (el){ el.innerHTML=''; while(el.firstChild) el.removeChild(el.firstChild); }
+  });
 
-  // الصيغ أعلى الجدول وبالوسط
-  const expF=$('expFormulas'); expF.innerHTML=''; expF.appendChild(renderFormulasBox(d.formulas||[]));
+  document.getElementById('exTitle').textContent = d.title || concept || '';
+  document.getElementById('chip2').textContent   = concept || '';
 
-  // جدول الرموز والوحدات بنفس منطق باقي الصفحات
-  const tb=$('symbols'); tb.innerHTML='';
+  document.getElementById('overview').innerHTML  = MATH.htmlWithMath(d.overview||'—');
+
+  const expF = document.getElementById('expFormulas');
+  expF.appendChild(renderFormulasBox(d.formulas||[]));
+
+  const tb = document.getElementById('symbols');
   (d.symbols||[]).map(normalizeRow).forEach(s=>{
     const tr=document.createElement('tr');
     tr.innerHTML=`
@@ -161,17 +167,21 @@ function renderExplain(d, concept){
     tb.appendChild(tr);
   });
 
-  // خطوات الاستخدام/الحل
-  const st=$('steps'); st.innerHTML='';
-  (d.steps||[]).forEach(s=>{ const li=document.createElement('li'); li.innerHTML=MATH.htmlWithMath(s); st.appendChild(li); });
+  const st = document.getElementById('steps');
+  (d.steps||[]).forEach(s=>{
+    const li=document.createElement('li');
+    li.innerHTML=MATH.htmlWithMath(s);
+    st.appendChild(li);
+  });
 
-  $('secExplain').style.display='block';
+  document.getElementById('secExplain').style.display='block';
   if (window.MathJax?.typesetPromise) MathJax.typesetPromise();
 }
 
 /** عرض مثال/حل بنفس القالب */
 function renderCase(containerId, data){
   const root = $(containerId); root.innerHTML='';
+   while (root.firstChild) root.removeChild(root.firstChild);
   const frag = document.createDocumentFragment();
 
   // المسألة (سيناريو نصي واضح)
