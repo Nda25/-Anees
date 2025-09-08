@@ -53,7 +53,22 @@ const SYMBOL_AR = {
   'v':'السرعة','a':'التسارع','g':'تسارع الجاذبية','t':'الزمن',
   'h':'الارتفاع','d':'المسافة','s':'الإزاحة','m':'الكتلة','F':'القوة'
 };
+function normalizeRow(obj){
+  const o = { ...obj };
 
+  // لو الوحدة هجرت للوصف نرجّعها
+  if (!o.unit && probablyUnit(o.desc)) { o.unit = o.desc; o.desc = '—'; }
+
+  // نلفّ الوحدة داخل $
+  if (o.unit) o.unit = wrapMath(o.unit);
+
+  // لو الوصف فاضي نعبيه من الرمز
+  if (!o.desc || !String(o.desc).trim()){
+    const key = String(o.symbol||'').replace(/\$/g,'').replace(/[\\{}]/g,'').trim();
+    o.desc = SYMBOL_AR[key] || '—';
+  }
+  return o;
+}
 // نفس الاسم: لكن نضيف تعبئة desc إن كان فاضي ونرتّب الوحدة
 function renderFormulasBox(list = []) {
   const box = document.createElement('div');
@@ -124,17 +139,6 @@ function renderGivenUnknowns(givens=[], unknowns=[]){
   tbl.appendChild(tb);
   if (window.MathJax?.typesetPromise) MathJax.typesetPromise();
   return tbl;
-}
-
-function renderFormulasBox(list=[]){
-  const box=document.createElement('div'); box.className='box center';
-  (list||[]).forEach(f=>{
-    const d=document.createElement('div'); d.className='math-block';
-    const eq=/^\$\$/.test(f)?f:`$$${(f||'').replace(/^\$|\$$/g,'')}$$`;
-    d.innerHTML=MATH.htmlWithMath(eq); box.appendChild(d);
-  });
-  if (window.MathJax?.typesetPromise) MathJax.typesetPromise();
-  return box;
 }
 
 /** عرض “اشرح لي” */
