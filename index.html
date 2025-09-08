@@ -231,7 +231,7 @@ window.MathJax={tex:{inlineMath:[['$','$'],['\\(','\\)']],displayMath:[['$$','$$
   // كشف بسيط إن كانت القيمة تبدو "وحدة"
   function probablyUnit(s){
     s=(s??'')+'';
-    return /\\mathrm\{|m\/s|m\^2|s\^2|kg|N|J|Pa|W|Hz|A|K|C|V|Ω|ohm/i.test(s);
+    return /\\mathrm\{|m\/s(?:\^2)?|m\^2|s\^2|kg|N|J|Pa|W|Hz|A|K|C|V|Ω|ohm/i.test(s);
   }
   function hasMathDelim(s){ return /\$|\\\(|\\\[/.test(s||''); }
   function wrapMath(s){
@@ -240,18 +240,61 @@ window.MathJax={tex:{inlineMath:[['$','$'],['\\(','\\)']],displayMath:[['$$','$$
     return hasMathDelim(s) ? s : `$${s}$`;
   }
 
-  // يعيد ترتيب الصف إذا هربت الوحدة إلى الوصف، ويضمن لفّها بـ $
-  function normalizeRow(row){
+  // اسم عربي تلقائي للرمز إن كان الوصف ناقص
+  const SYMBOL_AR = {
+    'v_f':'السرعة النهائية','vf':'السرعة النهائية',
+    'v_i':'السرعة الابتدائية','vi':'السرعة الابتدائية',
+    'a':'التسارع','g':'تسارع الجاذبية','t':'الزمن',
+    'h':'الارتفاع','d':'المسافة','s':'الإزاحة',
+    'm':'الكتلة','F':'القوة','W':'الشغل','P':'القدرة'
+  };
+  function fillDesc(row){
     const o = { ...row };
-    if ((!o.unit || !o.unit.trim()) && probablyUnit(o.desc)) {
-      o.unit = o.desc; o.desc = '—';
+    if(!o.desc || !o.desc.toString().trim()){
+      const key = (o.symbol||'').replace(/\$/g,'').replace(/[\\{}]/g,'').trim();
+      o.desc = SYMBOL_AR[key] || '—';
     }
-    if (o.unit) o.unit = wrapMath(o.unit);
     return o;
   }
 
+  // يعيد ترتيب الصف إذا هربت الوحدة إلى الوصف، ويضمن لفّها بـ $
+  function normalizeRow(row){
+    let o = { ...row };
+    if ((!o.unit || !o.unit.toString().trim()) && probablyUnit(o.desc)) {
+      o.unit = o.desc; o.desc = '—';
+    }
+    if (o.unit) o.unit = wrapMath(o.unit);
+    return fillDesc(o);
+  }
+
+  // تعريب سريع لعبارات إنجليزية شائعة في الخطوات (بدون تغيير المعنى)
+  function arabize(text=''){
+    let s = (text||'')+'';
+    const repl = [
+      [/Using the equation of motion/gi,'باستخدام معادلة الحركة'],
+      [/Substituting the given values/gi,'بالتعويض بالقيم المعطاة'],
+      [/where/gi,'حيث'],
+      [/final velocity/gi,'السرعة النهائية'],
+      [/initial velocity/gi,'السرعة الابتدائية'],
+      [/acceleration due to gravity/gi,'تسارع الجاذبية'],
+      [/height/gi,'الارتفاع'],
+      [/To find/gi,'لإيجاد'],
+      [/we take the square root of both sides/gi,'نأخذ الجذر التربيعي للطرفين'],
+      [/therefore|so/gi,'وبالتالي']
+    ];
+    repl.forEach(([a,b])=>{ s = s.replace(a,b); });
+
+    // توحيد الوحدات لعرض رياضي
+    s = s.replace(/\bm\/s\^2\b/g,'$\\mathrm{m/s^2}$')
+         .replace(/\bm\/s\b/g,'$\\mathrm{m/s}$')
+         .replace(/\bm\^2\b/g,'$\\mathrm{m^2}$')
+         .replace(/\bm\b/g,'$\\mathrm{m}$');
+
+    return s;
+  }
+
   // نكشف الدوال للاستخدام في بقية السكربت
-  window.MATH = { htmlWithMath, normalizeRow, wrapMath };
+  window.MATH = { htmlWithMath, normalizeRow, wrapMath, arabize };
 })();
 </script>
 
@@ -302,20 +345,44 @@ window.MathJax={tex:{inlineMath:[['$','$'],['\\(','\\)']],displayMath:[['$$','$$
 
   function renderCase(containerId, data){
     const root=document.getElementById(containerId); root.innerHTML=''; const frag=document.createDocumentFragment();
-    const s1=document.createElement('div'); s1.innerHTML=`<div class="sub">المسألة</div><div class="box">${H(data.scenario||data.question||'—')}</div>`; frag.appendChild(s1);
+
+    // المسألة — لو ما رجعت من الخادم نستخدم آخر سؤال مُولَّد
+    const fallbackQ = (window.LPQ || window.LAST_PRACTICE_QUESTION || '');
+    const qText = data.scenario || data.question || fallbackQ || '—';
+    const s1=document.createElement('div');
+    s1.innerHTML = `<div class="sub">المسألة</div><div class="box">${H(qText)}</div>`;
+    frag.appendChild(s1);
+
     const s2=document.createElement('div'); s2.className='sub'; s2.textContent='المعطيات والمجاهيل';
-    const b2=document.createElement('div'); b2.className='box'; b2.appendChild(renderGivenUnknowns(data.givens||[], data.unknowns||[])); frag.appendChild(s2); frag.appendChild(b2);
+    const b2=document.createElement('div'); b2.className='box';
+    b2.appendChild(renderGivenUnknowns(data.givens||[], data.unknowns||[]));
+    frag.appendChild(s2); frag.appendChild(b2);
+
     const s3=document.createElement('div'); s3.className='sub'; s3.textContent='القانون/القوانين المستخدمة';
-    const b3=renderFormulasBox(data.formulas||(data.formula?[data.formula]:[])); frag.appendChild(s3); frag.appendChild(b3);
+    const b3=renderFormulasBox(data.formulas||(data.formula?[data.formula]:[]));
+    frag.appendChild(s3); frag.appendChild(b3);
+
     const s4=document.createElement('div'); s4.className='sub'; s4.textContent='الحل والخطوات';
     const b4=document.createElement('div'); b4.className='box';
     const ol=document.createElement('ol');
-    (data.steps||[]).forEach(step=>{ const li=document.createElement('li'); li.innerHTML=H(step); ol.appendChild(li); });
+    (data.steps||[]).forEach(step=>{
+      const li=document.createElement('li');
+      li.innerHTML = H(window.MATH.arabize(step));
+      ol.appendChild(li);
+    });
     if((data.steps||[]).length) b4.appendChild(ol);
-    if(data.result){ const hr=document.createElement('div'); hr.style.height='1px'; hr.style.background='color-mix(in oklab, var(--ring) 70%, transparent 30%)'; hr.style.margin='8px 0';
-      b4.appendChild(hr); const big=document.createElement('div'); big.className='math-block';
-      const eq=/^\$\$/.test(data.result)?data.result:`$$${data.result.replace(/^\$|\$$/g,'')}$$`; big.innerHTML=H(eq); b4.appendChild(big); }
-    frag.appendChild(s4); frag.appendChild(b4); root.appendChild(frag); if(window.MathJax?.typesetPromise) MathJax.typesetPromise();
+
+    if(data.result){
+      const hr=document.createElement('div'); hr.style.height='1px'; hr.style.background='color-mix(in oklab, var(--ring) 70%, transparent 30%)'; hr.style.margin='8px 0';
+      b4.appendChild(hr);
+      const big=document.createElement('div'); big.className='math-block';
+      const eq=/^\$\$/.test(data.result)?data.result:`$$${data.result.replace(/^\$|\$$/g,'')}$$`;
+      big.innerHTML=H(eq); b4.appendChild(big);
+    }
+
+    frag.appendChild(s4); frag.appendChild(b4);
+    root.appendChild(frag);
+    if(window.MathJax?.typesetPromise) MathJax.typesetPromise();
   }
 
   function renderExplain(d,concept){
@@ -323,7 +390,6 @@ window.MathJax={tex:{inlineMath:[['$','$'],['\\(','\\)']],displayMath:[['$$','$$
     document.getElementById('overview').innerHTML=H(d.overview||'—');
     const expF=document.getElementById('expFormulas'); expF.innerHTML=''; expF.appendChild(renderFormulasBox(d.formulas||[]));
 
-    // جدول الرموز والوحدات — نستعمل نفس المنطق (تصحيح مكان الوحدة + عرض رياضي)
     const tb=document.getElementById('symbols'); tb.innerHTML='';
     (d.symbols||[]).map(window.MATH.normalizeRow).forEach(s=>{
       const tr=document.createElement('tr');
@@ -335,16 +401,14 @@ window.MathJax={tex:{inlineMath:[['$','$'],['\\(','\\)']],displayMath:[['$$','$$
     });
 
     const st=document.getElementById('steps'); st.innerHTML='';
-    (d.steps||[]).forEach(s=>{const li=document.createElement('li'); li.innerHTML=H(s); st.appendChild(li);});
-    document.getElementById('secExplain').style.display='block'; if(window.MathJax?.typesetPromise) MathJax.typesetPromise();
+    (d.steps||[]).forEach(s=>{const li=document.createElement('li'); li.innerHTML=H(window.MATH.arabize(s)); st.appendChild(li);});
+    document.getElementById('secExplain').style.display='block';
+    if(window.MathJax?.typesetPromise) MathJax.typesetPromise();
   }
 
-  // نعرّف الدوال للملف الآخر الذي يستدعيها
   window.UI={renderCase, renderExplain, H};
 })();
 </script>
-
-<script>
 (function(){
   const $=id=>document.getElementById(id);
   const secs=['secExplain','secEx1','secEx2','secPractice','secSolve'];
@@ -382,8 +446,9 @@ window.MathJax={tex:{inlineMath:[['$','$'],['\\(','\\)']],displayMath:[['$$','$$
   $('btnEx1').addEventListener('click', async ()=>{ hideAll(); const d=await call('ex1'); if(!d) return; UI.renderCase('ex1',d); $('secEx1').style.display='block'; });
   $('btnEx2').addEventListener('click', async ()=>{ hideAll(); const d=await call('ex2'); if(!d) return; UI.renderCase('ex2',d); $('secEx2').style.display='block'; });
   $('btnPractice').addEventListener('click', async ()=>{ hideAll(); const d=await call('practice'); if(!d) return;
-    LAST_PRACTICE_QUESTION=d.question||''; $('practice').innerHTML=UI.H(LAST_PRACTICE_QUESTION||'—');
-    $('secPractice').style.display='block'; if (window.MathJax?.typesetPromise) MathJax.typesetPromise();
+LAST_PRACTICE_QUESTION = d.question || '';
+window.LPQ = LAST_PRACTICE_QUESTION;   // ← جديد: نخزن نسخة للاستخدام لاحقًا
+$('practice').innerHTML = UI.H(LAST_PRACTICE_QUESTION || '—');
   });
   $('btnSolve').addEventListener('click', async ()=>{ hideAll();
     if(!LAST_PRACTICE_QUESTION){ showErr('اعرضي أولاً سؤال "اختبر فهمي" ثم اضغطي "الحل الصحيح".'); return; }
