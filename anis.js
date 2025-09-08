@@ -55,30 +55,28 @@ const SYMBOL_AR = {
 };
 
 // نفس الاسم: لكن نضيف تعبئة desc إن كان فاضي ونرتّب الوحدة
-function normalizeRow(obj){
-  const o = { ...obj };
-  if (!o.unit && probablyUnit(o.desc)) { o.unit = o.desc; o.desc = '—'; }
-  if (o.unit) o.unit = wrapMath(o.unit);
-  if (!o.desc || !String(o.desc).trim()){
-    const key = String(o.symbol||'').replace(/\$/g,'').replace(/[\\{}]/g,'').trim();
-    o.desc = SYMBOL_AR[key] || '—';
-  }
-  return o;
+function renderFormulasBox(list = []) {
+  const box = document.createElement('div');
+  box.className = 'box center';
+
+  (list || []).forEach(f => {
+    const d = document.createElement('div');
+    d.className = 'math-block';
+
+    const core = (f || '').replace(/\$+/g, ''); // إزالة أي $ داخلي
+    const eq   = /^\s*\$\$/.test(f) ? f : `$$${core}$$`;
+
+    d.innerHTML = MATH.htmlWithMath(eq);
+    box.appendChild(d);
+  });
+
+  if (window.MathJax?.typesetPromise) MathJax.typesetPromise();
+  return box;
 }
 /** يعالج صفًا واحدًا:
  * - إن كانت الوحدة هربت للـ desc نعيدها لـ unit.
  * - نلفّ الوحدة بالدولار لعرض رياضي أكيد.
  */
-function normalizeRow(obj){
-  const o = { ...obj };
-  if (!o.unit && probablyUnit(o.desc)) {
-    o.unit = o.desc; o.desc = '—';
-  }
-  if (o.unit && !hasMathDelim(o.unit)) {
-    o.unit = wrapMath(o.unit);
-  }
-  return o;
-}
 
 /* --------------------- عناصر واجهة عامة --------------------- */
 const $ = (id) => document.getElementById(id);
@@ -195,13 +193,22 @@ function renderCase(containerId, data){
   if((data.steps||[]).length) b4.appendChild(ol);
 
   // النتيجة النهائية (كبيرة وواضحة)
-  if (data.result){
-    const hr=document.createElement('div'); hr.style.height='1px'; hr.style.background='color-mix(in oklab, var(--ring) 70%, transparent 30%)'; hr.style.margin='8px 0';
-    b4.appendChild(hr);
-    const big=document.createElement('div'); big.className='math-block';
-const core = (data.result || '').replace(/\$+/g,''); // إزالة أي $ داخلي
-const eq   = /^\s*\$\$/.test(data.result) ? data.result : `$$${core}$$`;
-  }
+if (data.result){
+  const hr = document.createElement('div');
+  hr.style.height = '1px';
+  hr.style.background = 'color-mix(in oklab, var(--ring) 70%, transparent 30%)';
+  hr.style.margin = '8px 0';
+  b4.appendChild(hr);
+
+  const big = document.createElement('div');
+  big.className = 'math-block';
+
+  const core = (data.result || '').replace(/\$+/g, ''); // إزالة أي $ داخلي
+  const eq   = /^\s*\$\$/.test(data.result) ? data.result : `$$${core}$$`;
+  big.innerHTML = MATH.htmlWithMath(eq);
+
+  b4.appendChild(big); // ← لا تنسين إضافته للصندوق
+}
 
   frag.appendChild(s4); frag.appendChild(b4);
   root.appendChild(frag);
