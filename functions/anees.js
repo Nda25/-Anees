@@ -54,33 +54,39 @@ ${raw}` }]}],
     if (!data) return json({ ok:false, error:"Bad JSON from model" }, 502);
 
     // معالجة الرموز والترقيم
-    if (data.steps) {
-      data.steps = data.steps.map(s => (s ?? "").toString().replace(/^\s*\d+\.\s*/, '').trim());
-    }
+// معالجة الخطوات (نزيل الترقيم 1. 2. ...)
+if (data.steps) {
+  data.steps = data.steps.map(s => (s ?? "").toString().replace(/^\s*\d+\.\s*/, '').trim());
+}
 
-    const wrapSym = (sym) => {
-      sym = (sym ?? '') + '';
-      return sym && /^\$.*\$$/.test(sym) ? sym : (sym ? `$${sym}$` : sym);
-    };
-
-    if (data.symbols) {
-      data.symbols = data.symbols.map(s => ({ ...s, symbol: wrapSym(s?.symbol) }));
-    }
-    if (data.givens) {
-      data.givens = data.givens.map(g => ({ ...g, symbol: wrapSym(g?.symbol) }));
-    }
-    if (data.unknowns) {
-      data.unknowns = data.unknowns.map(u => ({ ...u, symbol: wrapSym(u?.symbol) }));
-    }
-
-    tidyPayloadNumbers(data);
-
-    return json({ ok:true, data });
-
-  } catch (e) {
-    return json({ ok:false, error: e?.message || "Unexpected error" }, 500);
-  }
+// تغليف الرموز بـ $...$
+const wrapSym = (sym) => {
+  sym = (sym ?? '') + '';
+  return sym && /^\$.*\$$/.test(sym) ? sym : (sym ? `$${sym}$` : sym);
 };
+
+if (data.symbols) {
+  data.symbols = data.symbols.map(s => ({ ...s, symbol: wrapSym(s?.symbol) }));
+}
+if (data.givens) {
+  data.givens = data.givens.map(g => ({ ...g, symbol: wrapSym(g?.symbol) }));
+}
+if (data.unknowns) {
+  data.unknowns = data.unknowns.map(u => ({ ...u, symbol: wrapSym(u?.symbol) }));
+}
+
+// 🔒 منع ظهور F=ma إذا المفهوم ليس "قانون نيوتن الثاني"
+if (Array.isArray(data.formulas)) {
+  const isNewton2 = /(نيوت(?:ن)?\s*(الثاني|2)|newton(?:'s)?\s*second)/i.test(concept);
+  if (!isNewton2) {
+    data.formulas = data.formulas.filter(f => !/\bF\s*=\s*m\s*\*?\s*a\b/i.test(String(f || '')));
+  }
+}
+
+// ترتيب الأعداد (منع 1e3 إلخ)
+tidyPayloadNumbers(data);
+
+return json({ ok: true, data });
 
 /* ---------- Helpers ---------- */
 function json(obj, status=200){
