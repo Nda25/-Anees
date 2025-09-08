@@ -212,6 +212,326 @@ window.MathJax={tex:{inlineMath:[['$','$'],['\\(','\\)']],displayMath:[['$$','$$
 </div>
 
 <!-- ========== تعديلات الملاحظات فقط: حماية LaTeX وتصحيح عمود "الوحدة" ========== -->
+<script>
+/* لا نلمس التصميم — فقط منطق العرض */
+(function(){
+  const clean = s => (s ?? '').toString().replace(/\r/g,'\n').trim();
+  const fixLatex = s => clean(s).replace(/(^|[^\\])\b(frac|sqrt|mathrm|cdot)\b/g,'$1\\$2');
 
+  function htmlWithMath(input){
+    let s = fixLatex(input||'');
+    const blocks=[], inlines=[];
+    s = s.replace(/\$\$([\s\S]*?)\$\$/g, (_,x)=>{ blocks.push('$$'+x+'$$'); return '§§B'+(blocks.length-1)+'§§';});
+    s = s.replace(/\$([^$]+)\$/g,       (_,x)=>{ inlines.push('$'+x+'$');   return '§§I'+(inlines.length-1)+'§§';});
+    s = s.replace(/§§B(\d+)§§/g, (_,i)=>`<div class="math-block">${blocks[i]}</div>`)
+         .replace(/§§I(\d+)§§/g, (_,i)=>`<span class="math-inline">${inlines[i]}</span>`);
+    return s;
+  }
+
+  // كشف بسيط إن كانت القيمة تبدو "وحدة"
+  function probablyUnit(s){
+    s=(s??'')+'';
+    return /\\mathrm\{|m\/s(?:\^2)?|m\^2|s\^2|kg|N|J|Pa|W|Hz|A|K|C|V|Ω|ohm/i.test(s);
+  }
+  function hasMathDelim(s){ return /\$|\\\(|\\\[/.test(s||''); }
+  function wrapMath(s){
+    s=(s??'').toString().trim();
+    if(!s) return s;
+    return hasMathDelim(s) ? s : `$${s}$`;
+  }
+
+  // اسم عربي تلقائي للرمز إن كان الوصف ناقص
+  const SYMBOL_AR = {
+    'v_f':'السرعة النهائية','vf':'السرعة النهائية',
+    'v_i':'السرعة الابتدائية','vi':'السرعة الابتدائية',
+    'a':'التسارع','g':'تسارع الجاذبية','t':'الزمن',
+    'h':'الارتفاع','d':'المسافة','s':'الإزاحة',
+    'm':'الكتلة','F':'القوة','W':'الشغل','P':'القدرة'
+  };
+  function fillDesc(row){
+    const o = { ...row };
+    if(!o.desc || !o.desc.toString().trim()){
+      const key = (o.symbol||'').replace(/\$/g,'').replace(/[\\{}]/g,'').trim();
+      o.desc = SYMBOL_AR[key] || '—';
+    }
+    return o;
+  }
+
+  // يعيد ترتيب الصف إذا هربت الوحدة إلى الوصف، ويضمن لفّها بـ $
+  function normalizeRow(row){
+    let o = { ...row };
+    if ((!o.unit || !o.unit.toString().trim()) && probablyUnit(o.desc)) {
+      o.unit = o.desc; o.desc = '—';
+    }
+    if (o.unit) o.unit = wrapMath(o.unit);
+    return fillDesc(o);
+  }
+
+  // تعريب سريع لعبارات إنجليزية شائعة في الخطوات (بدون تغيير المعنى)
+  function arabize(text=''){
+    let s = (text||'')+'';
+    const repl = [
+      [/Using the equation of motion/gi,'باستخدام معادلة الحركة'],
+      [/Substituting the given values/gi,'بالتعويض بالقيم المعطاة'],
+      [/where/gi,'حيث'],
+      [/final velocity/gi,'السرعة النهائية'],
+      [/initial velocity/gi,'السرعة الابتدائية'],
+      [/acceleration due to gravity/gi,'تسارع الجاذبية'],
+      [/height/gi,'الارتفاع'],
+      [/To find/gi,'لإيجاد'],
+      [/we take the square root of both sides/gi,'نأخذ الجذر التربيعي للطرفين'],
+      [/therefore|so/gi,'وبالتالي']
+    ];
+    repl.forEach(([a,b])=>{ s = s.replace(a,b); });
+
+    // توحيد الوحدات لعرض رياضي
+    s = s.replace(/\bm\/s\^2\b/g,'$\\mathrm{m/s^2}$')
+         .replace(/\bm\/s\b/g,'$\\mathrm{m/s}$')
+         .replace(/\bm\^2\b/g,'$\\mathrm{m^2}$')
+         .replace(/\bm\b/g,'$\\mathrm{m}$');
+
+    return s;
+  }
+
+  // نكشف الدوال للاستخدام في بقية السكربت
+  window.MATH = { htmlWithMath, normalizeRow, wrapMath, arabize };
+})();
+</script>
+
+<script>
+(function(){
+  const H = (s)=>window.MATH.htmlWithMath(s);
+
+  function renderGivenUnknowns(givens=[], unknowns=[]){
+    const tbl=document.createElement('table'); tbl.className='table center';
+    tbl.innerHTML=`<thead><tr><th>الرمز</th><th>القيمة</th><th>الوحدة</th><th>الوصف</th></tr></thead>`;
+    const tb=document.createElement('tbody');
+
+    (givens||[]).map(window.MATH.normalizeRow).forEach(g=>{
+      const tr=document.createElement('tr');
+      tr.innerHTML=`
+        <td>${H(g.symbol||'')}</td>
+        <td>${H(g.value||'')}</td>
+        <td class="unit-cell">${H(window.MATH.wrapMath(g.unit||''))}</td>
+        <td>${H(g.desc||'')}</td>`;
+      tb.appendChild(tr);
+    });
+
+    if((unknowns||[]).length){
+      const tr=document.createElement('tr'); const td=document.createElement('td');
+      td.colSpan=4; td.innerHTML='<span class="pill">المجاهيل</span>';
+      tr.appendChild(td); tb.appendChild(tr);
+      (unknowns||[]).map(window.MATH.normalizeRow).forEach(u=>{
+        const r=document.createElement('tr');
+        r.innerHTML=`
+          <td>${H(u.symbol||'')}</td>
+          <td>؟</td>
+          <td class="unit-cell">—</td>
+          <td>${H(u.desc||'')}</td>`;
+        tb.appendChild(r);
+      });
+    }
+    tbl.appendChild(tb); return tbl;
+  }
+
+  function renderFormulasBox(list=[]){
+    const box=document.createElement('div'); box.className='box center';
+    (list||[]).forEach(f=>{
+      const d=document.createElement('div'); d.className='math-block';
+      const eq=/^\$\$/.test(f)?f:`$$${(f||'').replace(/^\$|\$$/g,'')}$$`;
+      d.innerHTML=H(eq); box.appendChild(d);
+    });
+    return box;
+  }
+
+  function renderCase(containerId, data){
+    const root=document.getElementById(containerId); root.innerHTML='';
+    const frag=document.createDocumentFragment();
+
+    const fallbackQ = (window.LPQ || window.LAST_PRACTICE_QUESTION || '');
+    const qText = data.scenario || data.question || fallbackQ || '—';
+    const s1=document.createElement('div');
+    s1.innerHTML = `<div class="sub">المسألة</div><div class="box">${H(qText)}</div>`;
+    frag.appendChild(s1);
+
+    const s2=document.createElement('div'); s2.className='sub'; s2.textContent='المعطيات والمجاهيل';
+    const b2=document.createElement('div'); b2.className='box';
+    b2.appendChild(renderGivenUnknowns(data.givens||[], data.unknowns||[]));
+    frag.appendChild(s2); frag.appendChild(b2);
+
+    const s3=document.createElement('div'); s3.className='sub'; s3.textContent='القانون/القوانين المستخدمة';
+    const b3=renderFormulasBox(data.formulas||(data.formula?[data.formula]:[]));
+    frag.appendChild(s3); frag.appendChild(b3);
+
+    const s4=document.createElement('div'); s4.className='sub'; s4.textContent='الحل والخطوات';
+    const b4=document.createElement('div'); b4.className='box';
+    const ol=document.createElement('ol');
+    (data.steps||[]).forEach(step=>{
+      const li=document.createElement('li');
+      li.innerHTML = H(window.MATH.arabize(step));
+      ol.appendChild(li);
+    });
+    if((data.steps||[]).length) b4.appendChild(ol);
+
+    if(data.result){
+      const hr=document.createElement('div'); hr.style.height='1px';
+      hr.style.background='color-mix(in oklab, var(--ring) 70%, transparent 30%)';
+      hr.style.margin='8px 0';
+      b4.appendChild(hr);
+      const big=document.createElement('div'); big.className='math-block';
+      const eq=/^\$\$/.test(data.result)?data.result:`$$${data.result.replace(/^\$|\$$/g,'')}$$`;
+      big.innerHTML=H(eq); b4.appendChild(big);
+    }
+
+    frag.appendChild(s4); frag.appendChild(b4);
+    root.appendChild(frag);
+    if(window.MathJax?.typesetPromise) MathJax.typesetPromise();
+  }
+
+  function renderExplain(d,concept){
+    document.getElementById('exTitle').textContent=d.title||concept||'';
+    document.getElementById('chip2').textContent=concept||'';
+    document.getElementById('overview').innerHTML=H(d.overview||'—');
+    const expF=document.getElementById('expFormulas'); expF.innerHTML='';
+    expF.appendChild(renderFormulasBox(d.formulas||[]));
+
+    const tb=document.getElementById('symbols'); tb.innerHTML='';
+    (d.symbols||[]).map(window.MATH.normalizeRow).forEach(s=>{
+      const tr=document.createElement('tr');
+      tr.innerHTML=`
+        <td>${H(s.desc||'')}</td>
+        <td>${H(s.symbol||'')}</td>
+        <td class="unit-cell">${H(window.MATH.wrapMath(s.unit||''))}</td>`;
+      tb.appendChild(tr);
+    });
+
+    const st=document.getElementById('steps'); st.innerHTML='';
+    (d.steps||[]).forEach(s=>{
+      const li=document.createElement('li');
+      li.innerHTML=H(window.MATH.arabize(s));
+      st.appendChild(li);
+    });
+
+    document.getElementById('secExplain').style.display='block';
+    if(window.MathJax?.typesetPromise) MathJax.typesetPromise();
+  }
+
+  window.UI={renderCase, renderExplain, H};
+})();
+</script>
+  <script>
+(function(){
+  const $=id=>document.getElementById(id);
+  const secs=['secExplain','secEx1','secEx2','secPractice','secSolve'];
+
+  function hideAll(){
+    secs.forEach(id=>$(id).style.display='none');
+    const e=$('error'); if(e){ e.style.display='none'; e.textContent=''; }
+  }
+  function setBusy(t){
+    $('status').textContent=t||'';
+    document.querySelectorAll('.btn').forEach(b=>b.disabled=!!t);
+  }
+  function showErr(m){
+    const e=$('error'); e.style.display='block'; e.textContent=m||'حدث خطأ غير متوقع.';
+  }
+
+  let LAST_PRACTICE_QUESTION='';
+  const actionMap={ explain:'explain', ex1:'example', ex2:'example2', practice:'practice', solve:'solve' };
+
+  async function call(action, extra){
+    const concept=($('concept').value||'').trim();
+    if(!concept){ showErr('أدخل اسم القانون/المفهوم أولًا.'); return null; }
+    setBusy({
+      explain:'جارٍ توليد الشرح…',
+      ex1:'جارٍ إنشاء المثال…',
+      ex2:'جارٍ إنشاء المثال الآخر…',
+      practice:'جارٍ إنشاء سؤال التدريب…',
+      solve:'جارٍ الحل…'
+    }[action]||'جارٍ العمل…');
+
+    try{
+      const res=await fetch('/.netlify/functions/anees',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({
+          action:actionMap[action]||action,
+          concept,
+          question:(extra&&extra.question)||null
+        })
+      });
+      const txt=await res.text();
+      let json=null; try{ json=JSON.parse(txt); }catch(_){}
+      if(!res.ok) throw new Error((json&&json.error)||txt.slice(0,300)||('HTTP '+res.status));
+      if(!json) throw new Error('استجابة غير صالحة من الخادم.');
+      const payload=json.data||json; if(payload.error) throw new Error(payload.error);
+      return payload;
+    }catch(err){
+      showErr(err.message||'خطأ غير متوقع.'); return null;
+    }finally{ setBusy(''); }
+  }
+
+  $('btnExplain').addEventListener('click', async ()=>{
+    hideAll();
+    const d=await call('explain'); if(!d) return;
+    UI.renderExplain(d,$('concept').value);
+    $('secExplain').style.display='block';
+  });
+
+  $('btnEx1').addEventListener('click', async ()=>{
+    hideAll();
+    const d=await call('ex1'); if(!d) return;
+    UI.renderCase('ex1',d);
+    $('secEx1').style.display='block';
+  });
+
+  $('btnEx2').addEventListener('click', async ()=>{
+    hideAll();
+    const d=await call('ex2'); if(!d) return;
+    UI.renderCase('ex2',d);
+    $('secEx2').style.display='block';
+  });
+
+  $('btnPractice').addEventListener('click', async ()=>{
+    hideAll();
+    const d=await call('practice'); if(!d) return;
+    LAST_PRACTICE_QUESTION = d.question || '';
+    window.LPQ = LAST_PRACTICE_QUESTION;
+    $('practice').innerHTML = UI.H(LAST_PRACTICE_QUESTION || '—');
+    $('secPractice').style.display='block';
+    if (window.MathJax?.typesetPromise) MathJax.typesetPromise();
+  });
+
+  $('btnSolve').addEventListener('click', async ()=>{
+    hideAll();
+    if(!LAST_PRACTICE_QUESTION){
+      showErr('اعرضي أولاً سؤال "اختبر فهمي" ثم اضغطي "الحل الصحيح".'); return;
+    }
+    const d=await call('solve',{question:LAST_PRACTICE_QUESTION}); if(!d) return;
+    UI.renderCase('solve',d);
+    $('secSolve').style.display='block';
+  });
+})();
+</script>
+  <script>
+(function(){
+  const btn = document.getElementById('themeBtn');
+  if (!btn) return;
+
+  // فعّل الداكن حسب آخر اختيار محفوظ أو تفضيل النظام
+  const saved = localStorage.getItem('theme');
+  const preferDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+  if ((saved === 'dark') || (!saved && preferDark)) {
+    document.documentElement.classList.add('dark');
+    btn.textContent = 'الوضع الفاتح';
+  }
+
+  btn.addEventListener('click', () => {
+    const isDark = document.documentElement.classList.toggle('dark');
+    btn.textContent = isDark ? 'الوضع الفاتح' : 'الوضع الداكن';
+    localStorage.setItem('theme', isDark ? 'dark' : 'light');
+  });
+})();
+</script>
 </body>
 </html>
