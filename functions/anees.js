@@ -116,21 +116,32 @@ function extractJson(text){
   return t;
 }
 function sanitizeJson(t){
+  // تنظيف عام + إصلاحات شائعة
   return (t||"")
+    .replace(/\uFEFF/g,"")
+    .replace(/[\u200E\u200F\u202A-\u202E]/g,"")
+    .replace(/^```json/i,"```")
+    .replace(/^```/,"")
+    .replace(/```$/,"")
     .replace(/[“”]/g,'"')
     .replace(/[‘’]/g,"'")
+    .replace(/'([A-Za-z\u0600-\u06FF_][\w\u0600-\u06FF_]*)'\s*:/g, '"$1":')
+    .replace(/:\s*'([^'\\]*(?:\\.[^'\\]*)*)'/g, ':"$1"')
     .replace(/,\s*([}\]])/g,"$1")
     .replace(/:\s*undefined/g,": null")
     .replace(/\s+\n/g,"\n")
     .trim();
 }
+
 function parseLooseJson(s){
   if(!s) return null;
   let t = extractJson(s);
   if(!t) return null;
+  t = sanitizeJson(t);
   t = t.replace(/([{,]\s*)([A-Za-z\u0600-\u06FF_][\w\u0600-\u06FF_]*)(\s*):/g, '$1"$2"$3:');
   try { return JSON.parse(t); } catch { return null; }
 }
+
 function sciToLatex(v){
   const s = (v??"")+"";
   const m = s.match(/^\s*([+-]?\d+(?:\.\d+)?)e([+-]?\d+)\s*$/i);
