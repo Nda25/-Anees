@@ -207,7 +207,7 @@ function buildCall(key, action, subject, concept, question){
     title: "عنوان قصير بالعربية",
     overview: "تعريف موجز واضح بالعربية",
     symbols: [ { desc:"القوة", symbol:"F", unit:"\\mathrm{N}" } ],
-    formulas: ["$$F=ma$$"],
+    formulas: [],
     steps: ["استخراج المعطيات","اختيار القانون","التعويض والحساب"]
   };
 
@@ -224,13 +224,16 @@ function buildCall(key, action, subject, concept, question){
   let prompt = `أنت خبيرة ${subject}. ${RULES}
 المفهوم: «${concept}».`;
 
-  if (action === "explain") {
-    prompt += `
+if (action === "explain") {
+  prompt += `
 أعِد كائن JSON **يطابق حرفيًا** هذا المخطط (القيم فقط تتغير):
 ${JSON.stringify(EXPLAIN_SCHEMA)}
 - اجعل جميع الحقول بالعربية فقط.
-- لا تستخدم \\mathrm في النص العادي (فقط داخل المعادلات).`;
-    temp = 0.2;
+- لا تستخدم \\mathrm في النص العادي (فقط داخل المعادلات).
+- املأ "formulas" بصيغ **مرتبطة مباشرة** بالمفهوم «${concept}» (لا صيغ عامة أو غير ذات صلة).
+- لا تذكر صيغة عامة مثل F=ma **إلا** إذا كان المفهوم هو "قانون نيوتن الثاني".`;
+  temp = 0.2;
+}
 
 } else if (action === "example") {
   prompt += `
