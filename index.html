@@ -301,7 +301,11 @@ window.MathJax={tex:{inlineMath:[['$','$'],['\\(','\\)']],displayMath:[['$$','$$
 <script>
 (function(){
   const H = (s)=>window.MATH.htmlWithMath(s);
-
+<script>
+(function(){
+  // هنا كود الأزرار (btnExplain, btnEx1, btnEx2, btnPractice, btnSolve)
+})();
+</script>
   function renderGivenUnknowns(givens=[], unknowns=[]){
     const tbl=document.createElement('table'); tbl.className='table center';
     tbl.innerHTML=`<thead><tr><th>الرمز</th><th>القيمة</th><th>الوحدة</th><th>الوصف</th></tr></thead>`;
