@@ -241,7 +241,7 @@ ${JSON.stringify(EXPLAIN_SCHEMA)}
   temp = 0.2;
 }
 
-} else if (action === "example") {
+else if (action === "example") {
   prompt += `
 أعد مثالًا تطبيقيًا “متوسط الصعوبة” حول «${concept}» وفق هذا المخطط:
 ${JSON.stringify(EXAMPLE_SCHEMA)}
