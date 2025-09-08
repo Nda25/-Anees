@@ -46,6 +46,25 @@ function probablyUnit(s){
   return /\\mathrm\{|\/|\\^|\^|m\/s|kg|N|J|Pa|W|Hz|m\^2|s\^2|A|K/i.test(s);
 }
 
+// خريطة عربية سريعة لأشهر الرموز
+const SYMBOL_AR = {
+  'v_f':'السرعة النهائية','vf':'السرعة النهائية',
+  'v_i':'السرعة الابتدائية','vi':'السرعة الابتدائية',
+  'v':'السرعة','a':'التسارع','g':'تسارع الجاذبية','t':'الزمن',
+  'h':'الارتفاع','d':'المسافة','s':'الإزاحة','m':'الكتلة','F':'القوة'
+};
+
+// نفس الاسم: لكن نضيف تعبئة desc إن كان فاضي ونرتّب الوحدة
+function normalizeRow(obj){
+  const o = { ...obj };
+  if (!o.unit && probablyUnit(o.desc)) { o.unit = o.desc; o.desc = '—'; }
+  if (o.unit) o.unit = wrapMath(o.unit);
+  if (!o.desc || !String(o.desc).trim()){
+    const key = String(o.symbol||'').replace(/\$/g,'').replace(/[\\{}]/g,'').trim();
+    o.desc = SYMBOL_AR[key] || '—';
+  }
+  return o;
+}
 /** يعالج صفًا واحدًا:
  * - إن كانت الوحدة هربت للـ desc نعيدها لـ unit.
  * - نلفّ الوحدة بالدولار لعرض رياضي أكيد.
@@ -180,8 +199,8 @@ function renderCase(containerId, data){
     const hr=document.createElement('div'); hr.style.height='1px'; hr.style.background='color-mix(in oklab, var(--ring) 70%, transparent 30%)'; hr.style.margin='8px 0';
     b4.appendChild(hr);
     const big=document.createElement('div'); big.className='math-block';
-    const eq=/^\$\$/.test(data.result)?data.result:`$$${data.result.replace(/^\$|\$$/g,'')}$$`;
-    big.innerHTML=MATH.htmlWithMath(eq); b4.appendChild(big);
+const core = (data.result || '').replace(/\$+/g,''); // إزالة أي $ داخلي
+const eq   = /^\s*\$\$/.test(data.result) ? data.result : `$$${core}$$`;
   }
 
   frag.appendChild(s4); frag.appendChild(b4);
