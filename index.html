@@ -419,5 +419,99 @@ window.MathJax={tex:{inlineMath:[['$','$'],['\\(','\\)']],displayMath:[['$$','$$
   window.UI={renderCase, renderExplain, H};
 })();
 </script>
+  <script>
+(function(){
+  const $=id=>document.getElementById(id);
+  const secs=['secExplain','secEx1','secEx2','secPractice','secSolve'];
+
+  function hideAll(){
+    secs.forEach(id=>$(id).style.display='none');
+    const e=$('error'); if(e){ e.style.display='none'; e.textContent=''; }
+  }
+  function setBusy(t){
+    $('status').textContent=t||'';
+    document.querySelectorAll('.btn').forEach(b=>b.disabled=!!t);
+  }
+  function showErr(m){
+    const e=$('error'); e.style.display='block'; e.textContent=m||'حدث خطأ غير متوقع.';
+  }
+
+  let LAST_PRACTICE_QUESTION='';
+  const actionMap={ explain:'explain', ex1:'example', ex2:'example2', practice:'practice', solve:'solve' };
+
+  async function call(action, extra){
+    const concept=($('concept').value||'').trim();
+    if(!concept){ showErr('أدخل اسم القانون/المفهوم أولًا.'); return null; }
+    setBusy({
+      explain:'جارٍ توليد الشرح…',
+      ex1:'جارٍ إنشاء المثال…',
+      ex2:'جارٍ إنشاء المثال الآخر…',
+      practice:'جارٍ إنشاء سؤال التدريب…',
+      solve:'جارٍ الحل…'
+    }[action]||'جارٍ العمل…');
+
+    try{
+      const res=await fetch('/.netlify/functions/anees',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({
+          action:actionMap[action]||action,
+          concept,
+          question:(extra&&extra.question)||null
+        })
+      });
+      const txt=await res.text();
+      let json=null; try{ json=JSON.parse(txt); }catch(_){}
+      if(!res.ok) throw new Error((json&&json.error)||txt.slice(0,300)||('HTTP '+res.status));
+      if(!json) throw new Error('استجابة غير صالحة من الخادم.');
+      const payload=json.data||json; if(payload.error) throw new Error(payload.error);
+      return payload;
+    }catch(err){
+      showErr(err.message||'خطأ غير متوقع.'); return null;
+    }finally{ setBusy(''); }
+  }
+
+  $('btnExplain').addEventListener('click', async ()=>{
+    hideAll();
+    const d=await call('explain'); if(!d) return;
+    UI.renderExplain(d,$('concept').value);
+    $('secExplain').style.display='block';
+  });
+
+  $('btnEx1').addEventListener('click', async ()=>{
+    hideAll();
+    const d=await call('ex1'); if(!d) return;
+    UI.renderCase('ex1',d);
+    $('secEx1').style.display='block';
+  });
+
+  $('btnEx2').addEventListener('click', async ()=>{
+    hideAll();
+    const d=await call('ex2'); if(!d) return;
+    UI.renderCase('ex2',d);
+    $('secEx2').style.display='block';
+  });
+
+  $('btnPractice').addEventListener('click', async ()=>{
+    hideAll();
+    const d=await call('practice'); if(!d) return;
+    LAST_PRACTICE_QUESTION = d.question || '';
+    window.LPQ = LAST_PRACTICE_QUESTION;
+    $('practice').innerHTML = UI.H(LAST_PRACTICE_QUESTION || '—');
+    $('secPractice').style.display='block';
+    if (window.MathJax?.typesetPromise) MathJax.typesetPromise();
+  });
+
+  $('btnSolve').addEventListener('click', async ()=>{
+    hideAll();
+    if(!LAST_PRACTICE_QUESTION){
+      showErr('اعرضي أولاً سؤال "اختبر فهمي" ثم اضغطي "الحل الصحيح".'); return;
+    }
+    const d=await call('solve',{question:LAST_PRACTICE_QUESTION}); if(!d) return;
+    UI.renderCase('solve',d);
+    $('secSolve').style.display='block';
+  });
+})();
+</script>
 </body>
 </html>
