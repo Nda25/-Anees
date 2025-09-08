@@ -168,81 +168,108 @@ async function postWithRetry(url, payload, { tries = 3, baseDelayMs = 800 } = {}
 }
 
 function buildCall(key, action, subject, concept, question){
-  const baseUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`;
+  const baseUrl =
+    `https://generativelanguage.googleapis.com/v1beta/models/` +
+    `gemini-1.5-flash:generateContent?key=${key}`;
 
-  const header =
-`أنت خبيرة ${subject}.
-اكتبي بالعربية الفصحى فقط.
-المعادلات بالـ LaTeX بين $...$ أو $$...$$.
-الوحدات داخل \\mathrm{} مثل: $9.8\\,\\mathrm{m/s^2}$.
-أعد دائمًا "JSON صالح فقط" بلا أي شرح خارج الكائن.
-المفهوم: «${concept}».`;
+  // قواعد عامة ثابتة لكل الطلبات
+  const RULES = `
+- اكتب **بالعربية الفصحى فقط** في كل الحقول النصية (scenario/overview/steps/…).
+- يمنع استخدام الإنجليزية خارج LaTeX مطلقًا؛ إن كان السؤال أو المصطلحات إنجليزية فترجمها للعربية.
+- المعادلات دائمًا داخل $...$ أو $$...$$ فقط.
+- الوحدات داخل LaTeX وبصيغة \\mathrm{...} مثل: $9.8\\,\\mathrm{m/s^2}$.
+- لا تضع أي Markdown أو \`\`\` أو تعليقات؛ **أعيد JSON صالح فقط**.
+- المفاتيح المسموحة حسب نوع الطلب ولا غيرها.`;
 
-  const explainSchema = {
-    title: "عنوان قصير",
+  // مخططات صارمة نلزم بها النموذج
+  const EXPLAIN_SCHEMA = {
+    title: "عنوان قصير بالعربية",
     overview: "تعريف موجز واضح بالعربية",
     symbols: [ { desc:"القوة", symbol:"F", unit:"\\mathrm{N}" } ],
     formulas: ["$$F=ma$$"],
-    steps: ["١- استخراج المعطيات","٢- اختيار القانون","٣- التعويض والحساب"]
+    steps: ["استخراج المعطيات","اختيار القانون","التعويض والحساب"]
   };
 
-  const exampleSchema = {
-    scenario: "نص مسألة عددية حقيقية وواضحة",
-    givens: [ { symbol:"m", value:"5", unit:"\\mathrm{kg}", desc:"الكتلة" } ],
+  const EXAMPLE_SCHEMA = {
+    scenario: "نص مسألة عربية واضحة",
+    givens:   [ { symbol:"m", value:"5", unit:"\\mathrm{kg}", desc:"الكتلة" } ],
     unknowns: [ { symbol:"a", desc:"التسارع" } ],
     formulas: ["$$F=ma$$"],
-    steps: ["اشرح خطوات الحل بالتفصيل مع التعويض العددي في كل خطوة إن أمكن. لا تضع أرقامًا للخطوات في النص نفسه."],
-    result: "$$a = 2\\,\\mathrm{m/s^2}$$"
+    steps:    ["خطوات عربية مفصلة مع التعويض العددي في كل خطوة"],
+    result:   "$$a = 2\\,\\mathrm{m/s^2}$$"
   };
 
-  let temp = 0.2;
-  let prompt = header;
+  let temp = 0.25;
+  let prompt = `أنت خبيرة ${subject}. ${RULES}
+المفهوم: «${concept}».`;
 
   if (action === "explain") {
     prompt += `
-أعِد JSON يطابق هذا المخطط حرفيًا مع توسيعه بما يلزم:
-${JSON.stringify(explainSchema)}
-- لا تستخدم الإنجليزية في الشرح.
-- لا تكتب \\mathrm في النص العادي (فقط داخل المعادلات).
-- اجعل جدول الرموز مصفوفة كائنات: [{ "desc","symbol","unit" }].`;
+أعِد كائن JSON **يطابق حرفيًا** هذا المخطط (القيم فقط تتغير):
+${JSON.stringify(EXPLAIN_SCHEMA)}
+- اجعل جميع الحقول بالعربية فقط.
+- لا تستخدم \\mathrm في النص العادي (فقط داخل المعادلات).`;
+    temp = 0.2;
+
   } else if (action === "example") {
+    prompt += `
+أعد مثالًا تطبيقيًا “متوسط الصعوبة” حول «${concept}» وفق هذا المخطط:
+${JSON.stringify(EXAMPLE_SCHEMA)}
+- عدّل الأرقام والقيم فقط، واحرص على أن تكون وحدات givens داخل \\mathrm.
+- steps عربية بالكامل وتشرح التعويض العددي خطوة بخطوة.
+- ممنوع الصيغة العلمية 1e3؛ اكتب 1000.`;
     temp = 0.35;
-    prompt += `
-أعِد JSON يمثل مثالًا تطبيقيًا بصعوبة "متوسطة" حول «${concept}».
-يجب أن يملأ هذا المخطط (مسموح التغيير في القيم فقط):
-${JSON.stringify(exampleSchema)}
-- اكتب القيم بالأرقام العادية (مثل 0.002 وليس 2e-3).
-- لا تكتب عبارة "سؤال صحيح وواضح".
-- اجعل خطوات الحل مفصلة وتشرح عملية التعويض العددي.`;
+
   } else if (action === "example2") {
-    temp = 0.5;
     prompt += `
-أعِد JSON يمثل مثالًا آخر "أصعب بقليل" من المثال الأول، وبمجهول مختلف.
-النموذج:
-${JSON.stringify(exampleSchema)}
-- غيّر المجهول (مثلاً من a إلى m أو F).
-- لا تستخدم الصيغة العلمية 1e3؛ اكتب 1000.
-- بدون أي نص خارج JSON.
-- اجعل خطوات الحل مفصلة وتشرح عملية التعويض العددي.`;
+أعد مثالًا آخر “أصعب قليلًا” وبمجهول مختلف، طبقًا للمخطط نفسه:
+${JSON.stringify(EXAMPLE_SCHEMA)}
+- غيّر المجهول في unknowns (مثلًا من a إلى m أو F).
+- steps عربية فقط وتحتوي معادلات داخل $...$.
+- بدون أي نص خارج JSON.`;
+    temp = 0.45;
+
   } else if (action === "practice") {
-    temp = 0.55;
     prompt += `
 أعِد JSON بهذا الشكل فقط:
-{ "question": "<سؤال عربي عددي كامل حول «${concept}» بصياغة سليمة وواضحة، مستوى صعوبة متوسط، مع أرقام ووحدات حقيقية داخل LaTeX عند الحاجة>" }
-- لا تكرر نفس المجهول في كل مرة؛ نوع بين (السرعة، التسارع، الكتلة، القوة، الزمن، الارتفاع، الشحنة...) حسب المفهوم.
-- لا تضع أي مفاتيح أخرى.
-- لا تكتب الإنجليزية مطلقًا.`;
+{ "question": "<سؤال عربي عددي كامل وواضح حول «${concept}»، بمستوى متوسط، مع وحدات حقيقية داخل LaTeX عند الحاجة>" }
+- لا تضف أي مفاتيح أخرى.`;
+    temp = 0.55;
+
   } else if (action === "solve") {
-    temp = 0.25;
+    // نُلزم النموذج بنفس مخطط المثال لضمان تعبئة الجدول
     prompt += `
-حل المسألة التالية بنفس شكل المثال (givens/unknowns/formulas/steps/result):
+حل المسألة التالية وأعد JSON **بنفس مخطط المثال تمامًا**:
 السؤال: ${question}
-- رتّب givens/unknowns بدقة ووحدات صحيحة.
-- أظهر في Steps الخطوات بالتفصيل مع التعويض العددي، وأي معادلة داخل $...$ أو $$...$$.
-- ضع النتيجة النهائية في "result" بصيغة LaTeX مع الوحدة.
-- القيم بالأرقام العادية (بدون 1e3).`;
+
+يجب أن يكون الناتج بالكائن التالي (غيّر القيم فقط):
+${JSON.stringify(EXAMPLE_SCHEMA)}
+
+التعليمات الإلزامية:
+- املأ givens و unknowns بدقة (symbol قصير مثل m, a, F) و unit داخل \\mathrm فقط.
+- steps عربية مفصلة؛ أي معادلة داخل $...$ أو $$...$$؛ لا تكتب \\mathrm في النص العادي.
+- ضع النتيجة النهائية في "result" بصيغة LaTeX مع وحدة صحيحة.`;
+    temp = 0.25;
+
+  } else {
+    // افتراضي: عاملِه كشرح
+    prompt += `
+(وضع افتراضي explain)
+${JSON.stringify(EXPLAIN_SCHEMA)}`;
+    temp = 0.25;
   }
 
+  const payload = {
+    contents: [{ role: "user", parts: [{ text: prompt }]}],
+    generationConfig: {
+      temperature: temp,
+      maxOutputTokens: 900,
+      response_mime_type: "application/json"
+    }
+  };
+
+  return { url: baseUrl, payload };
+}
   const payload = {
     contents:[{ role:"user", parts:[{ text: prompt }]}],
     generationConfig:{ temperature: temp, maxOutputTokens: 900, response_mime_type:"application/json" }
