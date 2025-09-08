@@ -215,7 +215,7 @@ function buildCall(key, action, subject, concept, question){
     scenario: "نص مسألة عربية واضحة",
     givens:   [ { symbol:"m", value:"5", unit:"\\mathrm{kg}", desc:"الكتلة" } ],
     unknowns: [ { symbol:"a", desc:"التسارع" } ],
-    formulas: ["$$F=ma$$"],
+    formulas: [],
     steps:    ["خطوات عربية مفصلة مع التعويض العددي في كل خطوة"],
     result:   "$$a = 2\\,\\mathrm{m/s^2}$$"
   };
