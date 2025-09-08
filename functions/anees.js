@@ -90,6 +90,15 @@ function json(obj, status=200){
     body: JSON.stringify(obj)
   };
 }
+
+// 👇 هنا تحطين safeJson الجديدة
+function safeJson(str){
+  try { 
+    return JSON.parse(str || '{}'); 
+  } catch { 
+    return {}; 
+  }
+
 async function safeJson(req){ try{ return await req.json(); }catch{ return {}; } }
 function tryParse(s){ try{ return s && JSON.parse(s); }catch{ return null; } }
 function extractJson(text){
