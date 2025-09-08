@@ -306,3 +306,20 @@ async function call(action, extra){
     renderCase('solve', d); $('secSolve').style.display='block';
   });
 })();
+// ====== Theme toggle (dark / light) ======
+(function(){
+  const btn = document.getElementById('themeBtn');
+  if (!btn) return;
+
+  // استرجاع من التخزين (لو كان المستخدم اختار قبل كذا)
+  if (localStorage.getItem('theme') === 'dark') {
+    document.documentElement.classList.add('dark');
+    btn.textContent = 'الوضع الفاتح';
+  }
+
+  btn.addEventListener('click', () => {
+    const isDark = document.documentElement.classList.toggle('dark');
+    btn.textContent = isDark ? 'الوضع الفاتح' : 'الوضع الداكن';
+    localStorage.setItem('theme', isDark ? 'dark' : 'light');
+  });
+})();
