@@ -98,8 +98,8 @@ function safeJson(str){
   } catch { 
     return {}; 
   }
-
-async function safeJson(req){ try{ return await req.json(); }catch{ return {}; } }
+    }
+  
 function tryParse(s){ try{ return s && JSON.parse(s); }catch{ return null; } }
 function extractJson(text){
   if (!text) return "";
