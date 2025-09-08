@@ -1,10 +1,10 @@
 // functions/anees.js
-module.exports = async (req) => {
+exports.handler = async (event) => {
   try {
     const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
     if (!GEMINI_API_KEY) return json({ ok:false, error:"Missing GEMINI_API_KEY" }, 500);
 
-    const body = await safeJson(req);
+const body = safeJson(event.body);
     const { action = "explain", subject = "الفيزياء", concept = "", question = "" } = body || {};
     if (!concept) return json({ ok:false, error:"أدخلي اسم القانون/المفهوم." }, 400);
 
@@ -84,10 +84,11 @@ ${raw}` }]}],
 
 /* ---------- Helpers ---------- */
 function json(obj, status=200){
-  return new Response(JSON.stringify(obj), {
-    status,
-    headers:{ "Content-Type":"application/json; charset=utf-8" }
-  });
+  return {
+    statusCode: status,
+    headers:{ "Content-Type":"application/json; charset=utf-8" },
+    body: JSON.stringify(obj)
+  };
 }
 async function safeJson(req){ try{ return await req.json(); }catch{ return {}; } }
 function tryParse(s){ try{ return s && JSON.parse(s); }catch{ return null; } }
