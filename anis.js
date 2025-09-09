@@ -219,21 +219,27 @@ function renderExplain(d, concept){
   document.getElementById('exTitle').textContent = d.title || concept || '';
   document.getElementById('chip2').textContent   = concept || '';
 
-  // ✅ إصلاح الـ overview: لفّ أي \mathrm{...} أو (عدد + \mathrm{وحدة}) داخل $...$ إذا لم تكن موجودة
-  {
-    const ov = d.overview || '—';
-    const ovFixed = (!/\$/.test(ov))
-      ? ov
-          // رقم + \mathrm{وحدة} (مع ^اختياري) → يلف داخل $
-          .replace(
-            /(\b[\w\u0600-\u06FF]+?\s*=\s*)?(\d+(?:\.\d+)?\s*\\,?\s*\\mathrm\{[^}]+\}(?:\^\d+)?)/g,
-            '$$$1$2$'
-          )
-          // أي \mathrm{...} عارية → تلف داخل $
-          .replace(/(\\mathrm\{[^}]+\})/g, '$$$1$')
-      : ov;
-    document.getElementById('overview').innerHTML = MATH.htmlWithMath(ovFixed);
-  }
+{
+  const ov = d.overview || '—';
+
+  // لا نلفّ إذا كان فيه دلائل رياضيات مسبقًا ($ أو \( أو \[)
+  const hasMathDelims = /(\$|\\\(|\\\[)/.test(ov);
+
+  const ovFixed = hasMathDelims ? ov
+    : ov
+        // رقم + \mathrm{وحدة} (+ ^أس) → نلفّه داخل $
+        .replace(
+          /(\d+(?:\.\d+)?\s*\\,?\s*\\mathrm\{[^}]+\}(?:\^\d+)?)/g,
+          (m) => '$' + m + '$'
+        )
+        // أي \mathrm{...} عارية → نلفّها داخل $
+        .replace(
+          /(\\mathrm\{[^}]+\})/g,
+          (m) => '$' + m + '$'
+        );
+
+  document.getElementById('overview').innerHTML = MATH.htmlWithMath(ovFixed);
+}
 
   // الصيغ (أزرار قابلة للاختيار)
   const expF = document.getElementById('expFormulas');
