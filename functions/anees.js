@@ -31,33 +31,94 @@ const { url, payload } = buildCall(GEMINI_API_KEY, action, subject, concept, que
       tryParse(sanitizeJson(extractJson(raw))) ||
       parseLooseJson(raw);
 
-    if (!data) {
-      const fixPayload = {
-        contents: [{ role:"user", parts:[{ text:
+    // سنحتفظ بأي نصّ مصحّح من خطوة الإصلاح كي نستخدمه لاحقًا في محاولة الإنقاذ
+let __rawFixed = "";
+
+if (!data) {
+  const fixPayload = {
+    contents: [{
+      role: "user",
+      parts: [{
+        text:
 `أصلحي JSON التالي ليكون صالحًا 100٪ ويطابق المخطط المطلوب.
 أعيدي الكائن فقط بلا أي كودات أو شرح:
 
-${raw}` }]}],
-        generationConfig:{ temperature:0.2, response_mime_type:"application/json" }
-      };
+${raw}`
+      }]
+    }],
+    generationConfig: { temperature: 0.2, response_mime_type: "application/json" }
+  };
 
-      const jj = await postWithRetry(url, fixPayload).catch(err => {
-        return { __http_error: String(err.message || err) };
-      });
-      if (jj && jj.__http_error) {
-        return json({ ok:false, error: jj.__http_error }, 429);
-      }
+  // نطلب من النموذج إصلاح الـ JSON
+  const jj = await postWithRetry(url, fixPayload).catch(err => {
+    return { __http_error: String(err.message || err) };
+  });
+  if (jj && jj.__http_error) {
+    return json({ ok:false, error: jj.__http_error }, 429);
+  }
 
-      const raw2 = jj?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
-      data =
-        tryParse(raw2) ||
-        tryParse(extractJson(raw2)) ||
-        tryParse(sanitizeJson(extractJson(raw2))) ||
-        parseLooseJson(raw2);
-    }
+  // نحاول قراءة الاستجابة المصحّحة
+  const raw2 = jj?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+  __rawFixed = raw2; // نخزّنها لاستخدامها في محاولة الإنقاذ
+  data =
+    tryParse(raw2) ||
+    tryParse(extractJson(raw2)) ||
+    tryParse(sanitizeJson(extractJson(raw2))) ||
+    parseLooseJson(raw2);
+}
 
+// ✨ محاولة إنقاذ أخيرة حسب نوع الطلب
+if (!data) {
+  const txt = (__rawFixed || raw || "").toString();
+  if (action === "practice") {
+    // لو كان بس سؤال
+    const q = txt
+      .replace(/^[\s\S]*?\{[\s\S]*?"question"\s*:\s*"(.*?)"[\s\S]*$/i, '$1')
+      .replace(/```.*?```/gs, '')
+      .trim();
+    if (q) data = { question: q };
+  } else if (action === "explain" || action === "example" || action === "example2" || action === "solve") {
+    // هيكل فارغ أساسي
+    data = {
+      title: "",
+      overview: "",
+      scenario: "",
+      givens: [],
+      unknowns: [],
+      formulas: [],
+      steps: [],
+      result: ""
+    };
+
+    // دوال صغيرة لاستخراج النصوص أو القوائم
+    const getBlock = (label) => {
+      const m = txt.match(new RegExp(`"${label}"\\s*:\\s*"(.*?)"`, 'i'));
+      return m ? m[1] : "";
+    };
+    const getList = (label) => {
+      const m = txt.match(new RegExp(`"${label}"\\s*:\\s*\$begin:math:display$(.*?)\\$end:math:display$`, 'is'));
+      if (!m) return [];
+      const inside = m[1];
+      return inside
+        .split(/"\s*,\s*"/g)
+        .map(s => s.replace(/^"+|"+$/g,''))
+        .filter(Boolean);
+    };
+
+    data.title    = getBlock('title')    || "";
+    data.overview = getBlock('overview') || "";
+    data.scenario = getBlock('scenario') || getBlock('question') || "";
+    data.formulas = getList('formulas');
+    data.steps    = getList('steps');
+
+    const hasSomething =
+      data.title || data.overview || data.scenario || data.formulas.length || data.steps.length;
+    if (!hasSomething) data = null;
+  }
+}
+
+// 👇 إذا بعد كل شيء لسه ما فيه بيانات
 if (!data) return json({ ok:false, error:"Bad JSON from model" }, 502);
-
 // ✨ فرض الصيغة المختارة في أول formulas إن وُجدت
 try {
   const pf = (preferred_formula ?? "").toString().trim();
@@ -150,7 +211,6 @@ function extractJson(text){
   return t;
 }
 function sanitizeJson(t){
-  // تنظيف عام + إصلاحات شائعة
   return (t||"")
     .replace(/\uFEFF/g,"")
     .replace(/[\u200E\u200F\u202A-\u202E]/g,"")
@@ -163,6 +223,11 @@ function sanitizeJson(t){
     .replace(/:\s*'([^'\\]*(?:\\.[^'\\]*)*)'/g, ':"$1"')
     .replace(/,\s*([}\]])/g,"$1")
     .replace(/:\s*undefined/g,": null")
+    // ✨ إضافات جديدة
+    .replace(/\bNaN\b/g, 'null')
+    .replace(/\bInfinity\b/g, 'null')
+    .replace(/\bTrue\b/gi, 'true')
+    .replace(/\bFalse\b/gi, 'false')
     .replace(/\s+\n/g,"\n")
     .trim();
 }
@@ -391,7 +456,7 @@ ${JSON.stringify(EXPLAIN_SCHEMA)}`;
     contents: [{ role: "user", parts: [{ text: prompt }]}],
     generationConfig: {
       temperature: temp,
-      maxOutputTokens: 900,
+      maxOutputTokens: 1200,
       response_mime_type: "application/json"
     }
   };
