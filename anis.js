@@ -19,26 +19,33 @@ const MATH = (() => {
 
   // نحافظ على $$...$$ (كتل) و$...$ (سطرية) ونحوّلها لعناصر HTML ليستقبلها MathJax
   function htmlWithMath(input) {
-    let s = fixLatex(input || "");
-    const blocks = [], inlines = [];
+  let s = fixLatex(input || "");
+  const blocks = [], inlines = [];
 
-    s = s.replace(/\$\$([\s\S]*?)\$\$/g, (_, inner) => {
-      blocks.push('$$' + inner + '$$');
-      return '§§B' + (blocks.length - 1) + '§§';
-    });
-    s = s.replace(/\$([^$]+)\$/g,   (_, inner) => {
-      inlines.push('$' + inner + '$');
-      return '§§I' + (inlines.length - 1) + '§§';
-    });
+  // نحفظ الكتل $$...$$ مؤقتًا
+  s = s.replace(/\$\$([\s\S]*?)\$\$/g, (_, inner) => {
+    blocks.push('$$' + inner + '$$');
+    return '§§B' + (blocks.length - 1) + '§§';
+  });
 
-    s = s
-      .replace(/§§B(\d+)§§/g, (_, i) => `<div class="math-block">${blocks[i]}</div>`)
-      .replace(/§§I(\d+)§§/g, (_, i) => `<span class="math-inline">${inlines[i]}</span>`);
+  // نحفظ السطرية $...$ مؤقتًا
+  s = s.replace(/\$([^$]+)\$/g, (_, inner) => {
+    inlines.push('$' + inner + '$');
+    return '§§I' + (inlines.length - 1) + '§§';
+  });
 
-    return s;
-  }
+  // نرجع الرموز إلى عناصر HTML
+  s = s
+    .replace(/§§B(\d+)§§/g, (_, i) => `<div class="math-block">${blocks[i]}</div>`)
+    .replace(/§§I(\d+)§§/g, (_, i) => `<span class="math-inline">${inlines[i]}</span>`);
 
-  return { htmlWithMath };
+  // ✨ الإضافة الجديدة: أي \mathrm بقيت خارج $...$ نلفها
+  s = s.replace(/(\\mathrm\{[^}]+\})/g, '<span class="math-inline">$$$1$$</span>');
+
+  return s;
+}
+
+return { htmlWithMath };
 })();
 
 /* --------------------- تنسيق الصفوف/الوحدات --------------------- */
@@ -248,13 +255,31 @@ function renderCase(containerId, data){
   frag.appendChild(s3); frag.appendChild(renderFormulasBox(data.formulas||(data.formula?[data.formula]:[])));
 
   // الحل والخطوات
-  const s4=document.createElement('div'); s4.className='sub'; s4.textContent='الحل والخطوات';
-  const b4=document.createElement('div'); b4.className='box';
-  const ol=document.createElement('ol');
-  (data.steps||[]).forEach(step=>{ const li=document.createElement('li'); li.innerHTML=MATH.htmlWithMath(step); ol.appendChild(li); });
-  if((data.steps||[]).length) b4.appendChild(ol);
+  const s4 = document.createElement('div'); 
+s4.className = 'sub'; 
+s4.textContent = 'الحل والخطوات';
 
-  // النتيجة النهائية (كبيرة وواضحة)
+const b4 = document.createElement('div'); 
+b4.className = 'box';
+
+// ____ الخطوات ____
+// ندعم مصفوفة أو نص واحد مفصول بأسطر
+const ol = document.createElement('ol');
+const stepsList = Array.isArray(data.steps)
+  ? data.steps
+  : (typeof data.steps === 'string'
+      ? data.steps.split(/\r?\n+/).map(s => s.trim()).filter(Boolean)
+      : []);
+
+stepsList.forEach(step => {
+  const li = document.createElement('li');
+  li.innerHTML = MATH.htmlWithMath(step);
+  ol.appendChild(li);
+});
+
+if (stepsList.length) b4.appendChild(ol);
+
+// ____ النتيجة النهائية (كبيرة وواضحة) ____
 if (data.result){
   const hr = document.createElement('div');
   hr.style.height = '1px';
@@ -269,13 +294,14 @@ if (data.result){
   const eq   = /^\s*\$\$/.test(data.result) ? data.result : `$$${core}$$`;
   big.innerHTML = MATH.htmlWithMath(eq);
 
-  b4.appendChild(big); // ← لا تنسين إضافته للصندوق
+  b4.appendChild(big);
 }
 
-  frag.appendChild(s4); frag.appendChild(b4);
-  root.appendChild(frag);
-  if (window.MathJax?.typesetPromise) MathJax.typesetPromise();
-}
+frag.appendChild(s4); 
+frag.appendChild(b4);
+root.appendChild(frag);
+if (window.MathJax?.typesetPromise) MathJax.typesetPromise();
+} 
 
 /* ---------------------- استدعاء الدالة السحابية ---------------------- */
 let LAST_PRACTICE_QUESTION = '';
