@@ -219,14 +219,28 @@ function renderExplain(d, concept){
   document.getElementById('exTitle').textContent = d.title || concept || '';
   document.getElementById('chip2').textContent   = concept || '';
 
-  document.getElementById('overview').innerHTML  = MATH.htmlWithMath(d.overview||'—');
+  // ✅ إصلاح الـ overview: لفّ أي \mathrm{...} أو (عدد + \mathrm{وحدة}) داخل $...$ إذا لم تكن موجودة
+  {
+    const ov = d.overview || '—';
+    const ovFixed = (!/\$/.test(ov))
+      ? ov
+          // رقم + \mathrm{وحدة} (مع ^اختياري) → يلف داخل $
+          .replace(
+            /(\b[\w\u0600-\u06FF]+?\s*=\s*)?(\d+(?:\.\d+)?\s*\\,?\s*\\mathrm\{[^}]+\}(?:\^\d+)?)/g,
+            '$$$1$2$'
+          )
+          // أي \mathrm{...} عارية → تلف داخل $
+          .replace(/(\\mathrm\{[^}]+\})/g, '$$$1$')
+      : ov;
+    document.getElementById('overview').innerHTML = MATH.htmlWithMath(ovFixed);
+  }
 
+  // الصيغ (أزرار قابلة للاختيار)
   const expF = document.getElementById('expFormulas');
-  // تفريغ الصندوق أولاً
   expF.innerHTML = '';
-  // عرض الصيغ كأزرار قابلة للاختيار
   renderFormulas(d.formulas || []);
 
+  // جدول الرموز والوحدات
   const tb = document.getElementById('symbols');
   (d.symbols||[]).map(normalizeRow).forEach(s=>{
     const tr = document.createElement('tr');
@@ -237,6 +251,7 @@ function renderExplain(d, concept){
     tb.appendChild(tr);
   });
 
+  // خطوات الاستخدام/الحل
   const st = document.getElementById('steps');
   (d.steps||[]).forEach(s=>{
     const li = document.createElement('li');
@@ -244,8 +259,10 @@ function renderExplain(d, concept){
     st.appendChild(li);
   });
 
-  document.getElementById('secExplain').style.display='block';
-  if (window.MathJax?.typesetPromise) MathJax.typesetPromise([document.getElementById('secExplain')]);
+  // عرض القسم وإعادة typeset
+  const sec = document.getElementById('secExplain');
+  sec.style.display = 'block';
+  if (window.MathJax?.typesetPromise) MathJax.typesetPromise([sec]);
 }
 
 /** عرض مثال/حل بنفس القالب */
