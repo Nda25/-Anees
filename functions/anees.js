@@ -83,12 +83,6 @@ if (data.steps) {
   });
 }
 
-    // معالجة الرموز والترقيم
-// معالجة الخطوات (نزيل الترقيم 1. 2. ...)
-if (data.steps) {
-  data.steps = data.steps.map(s => (s ?? "").toString().replace(/^\s*\d+\.\s*/, '').trim());
-}
-
 // تغليف الرموز بـ $...$
 const wrapSym = (sym) => {
   sym = (sym ?? '') + '';
