@@ -266,14 +266,16 @@ async function call(action, extra){
 
   try{
     const res = await fetch('/.netlify/functions/anees', {
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({
-        action: {explain:'explain',ex1:'example',ex2:'example2',practice:'practice',solve:'solve'}[action] || action,
-        concept,
-        question: extra?.question || null
-      })
-    });
+  method:'POST',
+  headers:{'Content-Type':'application/json'},
+  body: JSON.stringify({
+    action: {explain:'explain',ex1:'example',ex2:'example2',practice:'practice',solve:'solve'}[action] || action,
+    concept,
+    question: extra?.question || null,
+    // 👇 أرسلي الصيغة المختارة (إن وُجدت)
+    preferred_formula: selectedFormula || ""
+  })
+});
 
     const txt = await res.text();
     let json = null;
