@@ -221,11 +221,11 @@ function renderExplain(d, concept){
 
   document.getElementById('overview').innerHTML  = MATH.htmlWithMath(d.overview||'—');
 
-const expF = document.getElementById('expFormulas');
-// تفريغ الصندوق أولاً
-expF.innerHTML = '';
-// عرض الصيغ كأزرار قابلة للاختيار
-renderFormulas(d.formulas || []);
+  const expF = document.getElementById('expFormulas');
+  // تفريغ الصندوق أولاً
+  expF.innerHTML = '';
+  // عرض الصيغ كأزرار قابلة للاختيار
+  renderFormulas(d.formulas || []);
 
   const tb = document.getElementById('symbols');
   (d.symbols||[]).map(normalizeRow).forEach(s=>{
@@ -245,7 +245,11 @@ renderFormulas(d.formulas || []);
   });
 
   document.getElementById('secExplain').style.display='block';
-if (window.MathJax?.typesetPromise) MathJax.typesetPromise([document.getElementById('secExplain')]);
+
+  // ✨ التعديل: نطلب من MathJax إعادة الصياغة بشكل أدق
+  const sec = document.getElementById('secExplain');
+  const tbEl = document.getElementById('symbols'); // tbody حق الرموز والوحدات
+  if (window.MathJax?.typesetPromise) MathJax.typesetPromise([tbEl, sec]);
 }
 
 /** عرض مثال/حل بنفس القالب */
