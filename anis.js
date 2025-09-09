@@ -229,27 +229,23 @@ function renderExplain(d, concept){
 
   const tb = document.getElementById('symbols');
   (d.symbols||[]).map(normalizeRow).forEach(s=>{
-    const tr=document.createElement('tr');
-    tr.innerHTML=`
-      <td>${MATH.htmlWithMath(s.desc||'')}</td>
-      <td>${MATH.htmlWithMath(s.symbol||'')}</td>
-      <td class="unit-cell">${wrapMath(s.unit||'')}</td>
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${MATH.htmlWithMath(s.desc || '')}</td>
+      <td>${MATH.htmlWithMath(s.symbol || '')}</td>
+      <td class="unit-cell">${wrapMath(s.unit || '')}</td>`;
     tb.appendChild(tr);
   });
 
   const st = document.getElementById('steps');
   (d.steps||[]).forEach(s=>{
-    const li=document.createElement('li');
-    li.innerHTML=MATH.htmlWithMath(s);
+    const li = document.createElement('li');
+    li.innerHTML = MATH.htmlWithMath(s);
     st.appendChild(li);
   });
 
   document.getElementById('secExplain').style.display='block';
-
-  // ✨ التعديل: نطلب من MathJax إعادة الصياغة بشكل أدق
-  const sec = document.getElementById('secExplain');
-  const tbEl = document.getElementById('symbols'); // tbody حق الرموز والوحدات
-  if (window.MathJax?.typesetPromise) MathJax.typesetPromise([tbEl, sec]);
+  if (window.MathJax?.typesetPromise) MathJax.typesetPromise([document.getElementById('secExplain')]);
 }
 
 /** عرض مثال/حل بنفس القالب */
