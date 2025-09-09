@@ -233,7 +233,7 @@ function renderExplain(d, concept){
     tr.innerHTML=`
       <td>${MATH.htmlWithMath(s.desc||'')}</td>
       <td>${MATH.htmlWithMath(s.symbol||'')}</td>
-      <td class="unit-cell">${MATH.htmlWithMath(wrapMath(s.unit||''))}</td>`;
+      <td class="unit-cell">${wrapMath(s.unit||'')}</td>
     tb.appendChild(tr);
   });
 
