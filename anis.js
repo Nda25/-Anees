@@ -85,6 +85,14 @@ function renderFormulasBox(list = []) {
     const eq   = /^\s*\$\$/.test(f) ? f : `$$${core}$$`;
 
     d.innerHTML = MATH.htmlWithMath(eq);
+
+    // ✨ لو هذه الصيغة هي المختارة، نضيف تمييز
+    if (f === selectedFormula) {
+      d.style.outline = "2px solid var(--accent)";
+      d.style.borderRadius = "6px";
+      d.style.padding = "4px";
+    }
+
     box.appendChild(d);
   });
 
@@ -95,19 +103,35 @@ function renderFormulasBox(list = []) {
 function renderFormulas(list = []) {
   const box = document.getElementById("expFormulas");
   box.innerHTML = "";
-  list.forEach(f => {
+
+  (list || []).forEach(f => {
     const btn = document.createElement("button");
     btn.type = "button";
-    btn.className = "pill"; 
-    btn.innerHTML = f;      
+    btn.className = "pill";
+    btn.innerHTML = f; // فيه $...$ أو $$...$$
+
+    // عند الضغط: نحفظ الاختيار ونبرز الزر
     btn.onclick = () => {
       selectedFormula = f;
-      // تمييز الصيغة المختارة
-      [...box.querySelectorAll(".pill")].forEach(el => el.style.outline = "");
+      [...box.querySelectorAll(".pill")].forEach(el => {
+        el.style.outline = "";
+        el.setAttribute("aria-pressed", "false");
+      });
       btn.style.outline = "2px solid var(--accent)";
+      btn.setAttribute("aria-pressed", "true");
     };
+
+    // لو هذه الصيغة هي المختارة مسبقًا، برّزيها مباشرة
+    if (f === selectedFormula) {
+      btn.style.outline = "2px solid var(--accent)";
+      btn.setAttribute("aria-pressed", "true");
+    }
+
     box.appendChild(btn);
   });
+
+  // خلّي MathJax يرسم داخل الأزرار
+  if (window.MathJax?.typesetPromise) MathJax.typesetPromise([box]);
 } 
 
 /* --------------------- عناصر واجهة عامة --------------------- */
