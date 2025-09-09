@@ -96,14 +96,19 @@ if (!data) {
       return m ? m[1] : "";
     };
     const getList = (label) => {
-      const m = txt.match(new RegExp(`"${label}"\\s*:\\s*\$begin:math:display$(.*?)\\$end:math:display$`, 'is'));
-      if (!m) return [];
-      const inside = m[1];
-      return inside
-        .split(/"\s*,\s*"/g)
-        .map(s => s.replace(/^"+|"+$/g,''))
-        .filter(Boolean);
-    };
+  const m = txt.match(
+    new RegExp(
+      `"${label}"\\s*:\\s*\\$begin:math:display\\$(.*?)\\$end:math:display\\$`,
+      "is"
+    )
+  );
+  if (!m) return [];
+  const inside = m[1];
+  return inside
+    .split(/"\s*,\s*"/g)
+    .map(s => s.replace(/^"+|"+$/g, ""))
+    .filter(Boolean);
+};
 
     data.title    = getBlock('title')    || "";
     data.overview = getBlock('overview') || "";
@@ -119,30 +124,43 @@ if (!data) {
 
 // 👇 إذا بعد كل شيء لسه ما فيه بيانات
 if (!data) return json({ ok:false, error:"Bad JSON from model" }, 502);
+
 // ✨ فرض الصيغة المختارة في أول formulas إن وُجدت
 try {
   const pf = (preferred_formula ?? "").toString().trim();
   if (pf && Array.isArray(data.formulas)) {
-    // احذفي أي تكرار (تطابق نصي بعد تشذيب)
+    // احذف أي تكرار (تطابق نصي بعد تشذيب)
     data.formulas = data.formulas.filter(f => (f ?? "").toString().trim() !== pf);
-    // ضعي المختارة في المقدمة
+    // وضع المختارة في المقدمة
     data.formulas.unshift(pf);
   } else if (pf && !Array.isArray(data.formulas)) {
     data.formulas = [pf];
   }
 } catch {}
-    // ✨ معالجة الخطوات (نزيل الترقيم 1. 2. ...) + منع \mathrm في النص العادي
+
+// ✨ معالجة الخطوات (نزيل الترقيم 1. 2. ...) + منع \mathrm في النص العادي
 if (data.steps) {
   data.steps = data.steps.map(s => {
     s = (s ?? "").toString().replace(/^\s*\d+\.\s*/, '').trim();
-    // لو فيه \mathrm خارج $...$، نلفّها كلها داخل $
+    // لو فيه \mathrm خارج $...$، لفّي الجملة كلها داخل $
     const hasMath = /\$[^$]+\$/.test(s) || /\$\$[\s\S]+\$\$/.test(s);
-    if (!hasMath && /\\mathrm\{[^}]+\}/.test(s)) {
-      s = `$${s}$`;
-    }
+    if (!hasMath && /\\mathrm\{[^}]+\}/.test(s)) s = `$${s}$`;
     return s;
   });
 }
+
+// ✨ نفس الفكرة لعناصر النصّ الأخرى (title/overview/scenario)
+function wrapBareMathInText(s) {
+  s = (s ?? "").toString();
+  // لو فيه رياضيات مسبقًا لا نلمسها
+  if (/\$[^$]+\$/.test(s) || /\$\$[\s\S]+\$\$/.test(s)) return s;
+  // لفّ أي \mathrm{...} داخل $
+  return s.replace(/\\mathrm\{[^}]+\}/g, m => `$${m}$`);
+}
+
+if (data.title)    data.title    = wrapBareMathInText(data.title);
+if (data.overview) data.overview = wrapBareMathInText(data.overview);
+if (data.scenario) data.scenario = wrapBareMathInText(data.scenario);
 
 // تغليف الرموز بـ $...$
 const wrapSym = (sym) => {
