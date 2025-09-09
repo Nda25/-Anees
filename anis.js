@@ -22,9 +22,6 @@ const MATH = (() => {
   let s = fixLatex(input || "");
   const blocks = [], inlines = [];
 
-  // 1) فك الهروب: \$  ->  $
-  s = s.replace(/\\\$/g, '$');
-
   // 2) التقاط \[ ... \] ككتل رياضية قبل الدولارات
   s = s.replace(/\\\[([\s\S]*?)\\\]/g, (_, inner) => {
     blocks.push('$$' + inner + '$$');
@@ -118,7 +115,7 @@ function renderFormulasBox(list = []) {
     box.appendChild(d);
   });
 
-  if (window.MathJax?.typesetPromise) MathJax.typesetPromise();
+if (window.MathJax?.typesetPromise) MathJax.typesetPromise([box]);
   return box;
 }
 
@@ -157,7 +154,7 @@ function renderFormulas(list = []) {
   });
 
   // خلّي MathJax يرسم داخل الأزرار
-  if (window.MathJax?.typesetPromise) MathJax.typesetPromise([box]);
+if (window.MathJax?.typesetPromise) MathJax.typesetPromise([box]);
 }
 
 /* --------------------- عناصر واجهة عامة --------------------- */
@@ -204,7 +201,7 @@ function renderGivenUnknowns(givens=[], unknowns=[]){
   }
 
   tbl.appendChild(tb);
-  if (window.MathJax?.typesetPromise) MathJax.typesetPromise();
+if (window.MathJax?.typesetPromise) MathJax.typesetPromise([tbl]);
   return tbl;
 }
 
@@ -245,7 +242,7 @@ renderFormulas(d.formulas || []);
   });
 
   document.getElementById('secExplain').style.display='block';
-  if (window.MathJax?.typesetPromise) MathJax.typesetPromise();
+if (window.MathJax?.typesetPromise) MathJax.typesetPromise([document.getElementById('secExplain')]);
 }
 
 /** عرض مثال/حل بنفس القالب */
@@ -280,20 +277,29 @@ b4.className = 'box';
 // ____ الخطوات ____
 // ندعم مصفوفة أو نص واحد مفصول بأسطر
 const ol = document.createElement('ol');
+
 const stepsList = Array.isArray(data.steps)
   ? data.steps
   : (typeof data.steps === 'string'
-      ? data.steps.split(/\r?\n+/).map(s => s.trim()).filter(Boolean)
+      ? (
+          // لو رجع HTML يحتوي <li>…</li> استخرجي الـ lis
+          data.steps.includes('<li')
+            ? Array.from(data.steps.matchAll(/<li[^>]*>([\s\S]*?)<\/li>/gi)).map(m => m[1])
+            // وإلا حوّلي <br> إلى أسطر ثم قصّيها
+            : data.steps.replace(/<br\s*\/?>/gi, '\n').split(/\r?\n+/)
+        )
       : []);
 
-stepsList.forEach(step => {
-  const li = document.createElement('li');
-  li.innerHTML = MATH.htmlWithMath(step);
-  ol.appendChild(li);
-});
+stepsList
+  .map(s => s.trim())
+  .filter(Boolean)
+  .forEach(step => {
+    const li = document.createElement('li');
+    li.innerHTML = MATH.htmlWithMath(step);
+    ol.appendChild(li);
+  });
 
-if (stepsList.length) b4.appendChild(ol);
-
+if (ol.children.length) b4.appendChild(ol);
 // ____ النتيجة النهائية (كبيرة وواضحة) ____
 if (data.result){
   const hr = document.createElement('div');
@@ -315,7 +321,7 @@ if (data.result){
 frag.appendChild(s4); 
 frag.appendChild(b4);
 root.appendChild(frag);
-if (window.MathJax?.typesetPromise) MathJax.typesetPromise();
+if (window.MathJax?.typesetPromise) MathJax.typesetPromise([root]);
 } 
 
 /* ---------------------- استدعاء الدالة السحابية ---------------------- */
@@ -415,7 +421,7 @@ async function call(action, extra){
     LAST_PRACTICE_QUESTION = d.question || '';
     $('practice').innerHTML = MATH.htmlWithMath(LAST_PRACTICE_QUESTION || '—');
     $('secPractice').style.display = 'block';
-    if (window.MathJax?.typesetPromise) MathJax.typesetPromise();
+if (window.MathJax?.typesetPromise) MathJax.typesetPromise([$('practice')]);
   });
 
   $('btnSolve').addEventListener('click', async ()=>{
