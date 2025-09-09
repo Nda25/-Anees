@@ -5,10 +5,15 @@ exports.handler = async (event) => {
     if (!GEMINI_API_KEY) return json({ ok:false, error:"Missing GEMINI_API_KEY" }, 500);
 
 const body = safeJson(event.body);
-    const { action = "explain", subject = "الفيزياء", concept = "", question = "" } = body || {};
-    if (!concept) return json({ ok:false, error:"أدخلي اسم القانون/المفهوم." }, 400);
+const { 
+  action = "explain", 
+  subject = "الفيزياء", 
+  concept = "", 
+  question = "", 
+  preferred_formula = "" 
+} = body || {};
 
-    const { url, payload } = buildCall(GEMINI_API_KEY, action, subject, concept, question);
+const { url, payload } = buildCall(GEMINI_API_KEY, action, subject, concept, question, preferred_formula);
 
     // ← استخدام postWithRetry بدل fetch المباشر
     const j = await postWithRetry(url, payload).catch(err => {
