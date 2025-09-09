@@ -130,7 +130,15 @@ h3.sub{color:var(--sub);margin:10px 0 6px 0;font-weight:700}
 .unit-cell{direction:ltr}
 
 .center{max-width:820px;margin:0 auto}
-.pill{display:inline-block;background:color-mix(in oklab, var(--leaf-50) 60%, var(--card) 40%);border:1px solid var(--ring);border-radius:999px;padding:.25rem .6rem;margin:.12rem .25rem}
+.pill{
+  display:inline-block;
+  background:color-mix(in oklab, var(--leaf-50) 60%, var(--card) 40%);
+  border:1px solid var(--ring);
+  border-radius:999px;
+  padding:.25rem .6rem;
+  margin:.12rem .25rem;
+  cursor:pointer; /* ✨ الإضافة الجديدة */
+}
 
 footer{margin-top:auto;text-align:center;color:var(--muted);padding:22px 0 54px}
 footer .brandline{display:flex;align-items:center;gap:8px;justify-content:center;margin-top:6px}
