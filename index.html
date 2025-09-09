@@ -139,6 +139,10 @@ footer .leaf-dots{width:18px;height:18px;border-radius:50%;background:var(--acce
 footer .quote{font-weight:700;color:var(--ink);font-size:clamp(15px,3.6vw,18px)}
 html.dark footer .quote{color:#e9fbea}
 footer .sig{margin-top:4px;color:var(--ink);font-size:clamp(14px,3.4vw,16px)}
+.result-box {
+  direction: rtl;
+  unicode-bidi: plaintext;
+}
 </style>
 
 <script>
@@ -153,7 +157,7 @@ window.MathJax={tex:{inlineMath:[['$','$'],['\\(','\\)']],displayMath:[['$$','$$
 <div class="wrap">
   <header>
     <div style="display:inline-flex;align-items:center;gap:12px;">
-      <h1>أنيس – فيزياء</h1>
+      <h1>أنــيس – فيزيــاء</h1>
       <span class="logo-dot" aria-hidden="true"></span>
     </div>
     <p class="subtitle">التميّز والنجاح يبدأ بخطوة.</p>
@@ -199,12 +203,15 @@ window.MathJax={tex:{inlineMath:[['$','$'],['\\(','\\)']],displayMath:[['$$','$$
   <section id="secEx1" class="sec card pad"><h2 class="section">مثال تطبيقي</h2><div id="ex1" class="box"></div></section>
   <section id="secEx2" class="sec card pad"><h2 class="section">مثال آخر</h2><div id="ex2" class="box"></div></section>
   <section id="secPractice" class="sec card pad"><h2 class="section">اختبر فهمي</h2><div id="practice" class="box"></div></section>
-  <section id="secSolve" class="sec card pad"><h2 class="section">الحل الصحيح</h2><div id="solve" class="box"></div></section>
+<section id="secSolve" class="sec card pad">
+  <h2 class="section">الحل الصحيح</h2>
+  <div id="solve" class="box result-box"></div>
+</section>
 
   <footer>
     <div class="brandline">
       <span class="leaf-dots" aria-hidden="true"></span>
-      <span class="quote">لكلّ شيءٍ صعبٍ في حياتنا حلّ</span>
+      <span class="quote"> لكلّ شيءٍ صعبٍ في حياتنا حلّ </span>
     </div>
     <div class="sig">ندى محمد المجيرش</div>
   </footer>
