@@ -219,14 +219,23 @@ function renderExplain(d, concept){
   document.getElementById('exTitle').textContent = d.title || concept || '';
   document.getElementById('chip2').textContent   = concept || '';
 
-{
-  const ov = d.overview || '—';
+  // ----- تعريف overview (نزيل $ اليتيمة + نلفّ الوحدات) -----
+  {
+    let ov = (d.overview || '—') + '';
 
-  // لا نلفّ إذا كان فيه دلائل رياضيات مسبقًا ($ أو \( أو \[)
-  const hasMathDelims = /(\$|\\\(|\\\[)/.test(ov);
+    // نفك الهروب: "\$" → "$"
+    ov = ov.replace(/\\\$/g, '$');
 
-  const ovFixed = hasMathDelims ? ov
-    : ov
+    // لو عدد علامات $ فردي → نزيلها كلها لتفادي بقايا غير متطابقة
+    const dollarCount = (ov.match(/\$/g) || []).length;
+    if (dollarCount % 2 === 1) {
+      ov = ov.replace(/\$/g, '');
+    }
+
+    // إذا ما فيه دلائل رياضيات ($ أو \( أو \[) نلفّ الوحدات/الصيغ داخل $
+    const hasMathDelims = /(\$|\\\(|\\\[)/.test(ov);
+    if (!hasMathDelims) {
+      ov = ov
         // رقم + \mathrm{وحدة} (+ ^أس) → نلفّه داخل $
         .replace(
           /(\d+(?:\.\d+)?\s*\\,?\s*\\mathrm\{[^}]+\}(?:\^\d+)?)/g,
@@ -237,9 +246,10 @@ function renderExplain(d, concept){
           /(\\mathrm\{[^}]+\})/g,
           (m) => '$' + m + '$'
         );
+    }
 
-  document.getElementById('overview').innerHTML = MATH.htmlWithMath(ovFixed);
-}
+    document.getElementById('overview').innerHTML = MATH.htmlWithMath(ov);
+  }
 
   // الصيغ (أزرار قابلة للاختيار)
   const expF = document.getElementById('expFormulas');
