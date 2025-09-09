@@ -7,6 +7,9 @@
    ======================================================================== */
 
 /* ---------------------- Math helpers ---------------------- */
+
+let selectedFormula = "";
+
 const MATH = (() => {
   // تنظيف سريع لأي نص
   const clean = s => (s ?? "").toString().replace(/\r/g, "\n").trim();
@@ -88,10 +91,24 @@ function renderFormulasBox(list = []) {
   if (window.MathJax?.typesetPromise) MathJax.typesetPromise();
   return box;
 }
-/** يعالج صفًا واحدًا:
- * - إن كانت الوحدة هربت للـ desc نعيدها لـ unit.
- * - نلفّ الوحدة بالدولار لعرض رياضي أكيد.
- */
+
+function renderFormulas(list = []) {
+  const box = document.getElementById("expFormulas");
+  box.innerHTML = "";
+  list.forEach(f => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "pill"; 
+    btn.innerHTML = f;      
+    btn.onclick = () => {
+      selectedFormula = f;
+      // تمييز الصيغة المختارة
+      [...box.querySelectorAll(".pill")].forEach(el => el.style.outline = "");
+      btn.style.outline = "2px solid var(--accent)";
+    };
+    box.appendChild(btn);
+  });
+} 
 
 /* --------------------- عناصر واجهة عامة --------------------- */
 const $ = (id) => document.getElementById(id);
@@ -154,8 +171,11 @@ function renderExplain(d, concept){
 
   document.getElementById('overview').innerHTML  = MATH.htmlWithMath(d.overview||'—');
 
-  const expF = document.getElementById('expFormulas');
-  expF.appendChild(renderFormulasBox(d.formulas||[]));
+const expF = document.getElementById('expFormulas');
+// تفريغ الصندوق أولاً
+expF.innerHTML = '';
+// عرض الصيغ كأزرار قابلة للاختيار
+renderFormulas(d.formulas || []);
 
   const tb = document.getElementById('symbols');
   (d.symbols||[]).map(normalizeRow).forEach(s=>{
@@ -283,7 +303,8 @@ async function call(action, extra){
     const d = await call('explain'); if(!d) return;
     renderExplain(d, $('concept').value);
   });
-
+$('concept').addEventListener('input', ()=> { selectedFormula = ""; });
+   
   $('btnEx1')     .addEventListener('click', async ()=>{
     hideAllSections();
     const d = await call('ex1'); if(!d) return;
