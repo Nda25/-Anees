@@ -21,18 +21,21 @@ const MATH = (() => {
   function htmlWithMath(input) {
   let s = fixLatex(input || "");
   const blocks = [], inlines = [];
+     
+// 1) نك الهروب \$ -> $
+s = s.replace(/\\\$/g, '$');
 
-  // 2) التقاط \[ ... \] ككتل رياضية قبل الدولارات
-  s = s.replace(/\\\[([\s\S]*?)\\\]/g, (_, inner) => {
-    blocks.push('$$' + inner + '$$');
-    return '§§B' + (blocks.length - 1) + '§§';
-  });
+// 2) كتلة رياضية قبل الدولارات \[ ... \]
+s = s.replace(/\\\[([\s\S]*?)\\\]/g, (_, inner) => {
+  blocks.push('$$' + inner + '$$');
+  return '§§B' + (blocks.length - 1) + '§§';
+});
 
-  // 3) التقاط \( ... \) كسطرية قبل الدولارات
-  s = s.replace(/\\\(([\s\S]*?)\\\)/g, (_, inner) => {
-    inlines.push('$' + inner + '$');
-    return '§§I' + (inlines.length - 1) + '§§';
-  });
+// 3) كسطرية قبل الدولارات \( ... \)
+s = s.replace(/\\\(([\s\S]*?)\\\)/g, (_, inner) => {
+  inlines.push('$' + inner + '$');
+  return '§§I' + (inlines.length - 1) + '§§';
+});
 
   // 4) التقاط $$...$$ (كتل)
   s = s.replace(/\$\$([\s\S]*?)\$\$/g, (_, inner) => {
