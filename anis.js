@@ -22,24 +22,39 @@ const MATH = (() => {
   let s = fixLatex(input || "");
   const blocks = [], inlines = [];
 
-  // نحفظ الكتل $$...$$ مؤقتًا
+  // 1) فك الهروب: \$  ->  $
+  s = s.replace(/\\\$/g, '$');
+
+  // 2) التقاط \[ ... \] ككتل رياضية قبل الدولارات
+  s = s.replace(/\\\[([\s\S]*?)\\\]/g, (_, inner) => {
+    blocks.push('$$' + inner + '$$');
+    return '§§B' + (blocks.length - 1) + '§§';
+  });
+
+  // 3) التقاط \( ... \) كسطرية قبل الدولارات
+  s = s.replace(/\\\(([\s\S]*?)\\\)/g, (_, inner) => {
+    inlines.push('$' + inner + '$');
+    return '§§I' + (inlines.length - 1) + '§§';
+  });
+
+  // 4) التقاط $$...$$ (كتل)
   s = s.replace(/\$\$([\s\S]*?)\$\$/g, (_, inner) => {
     blocks.push('$$' + inner + '$$');
     return '§§B' + (blocks.length - 1) + '§§';
   });
 
-  // نحفظ السطرية $...$ مؤقتًا
+  // 5) التقاط $...$ (سطرية)
   s = s.replace(/\$([^$]+)\$/g, (_, inner) => {
     inlines.push('$' + inner + '$');
     return '§§I' + (inlines.length - 1) + '§§';
   });
 
-  // نرجع الرموز إلى عناصر HTML
+  // 6) إعادة الحقن ليرسمها MathJax
   s = s
     .replace(/§§B(\d+)§§/g, (_, i) => `<div class="math-block">${blocks[i]}</div>`)
     .replace(/§§I(\d+)§§/g, (_, i) => `<span class="math-inline">${inlines[i]}</span>`);
 
-  // ✨ الإضافة الجديدة: أي \mathrm بقيت خارج $...$ نلفها
+  // 7) لفّ أي \mathrm{...} بقيت عارية
   s = s.replace(/(\\mathrm\{[^}]+\})/g, '<span class="math-inline">$$$1$$</span>');
 
   return s;
@@ -305,7 +320,7 @@ if (window.MathJax?.typesetPromise) MathJax.typesetPromise();
 
 /* ---------------------- استدعاء الدالة السحابية ---------------------- */
 let LAST_PRACTICE_QUESTION = '';
-
+let LAST_EX1_SCENARIO = '';
 async function call(action, extra){
   const concept = ($('concept').value || '').trim();
   if (!concept){ showErr('أدخلي اسم القانون/المفهوم أولًا.'); return null; }
@@ -354,43 +369,65 @@ async function call(action, extra){
 
 /* ---------------------- ربط الأزرار وتشغيل العرض ---------------------- */
 (function wire(){
-  $('btnExplain') .addEventListener('click', async ()=>{
+  $('btnExplain').addEventListener('click', async ()=>{
     hideAllSections();
-    const d = await call('explain'); if(!d) return;
+    const d = await call('explain'); 
+    if (!d) return;
     renderExplain(d, $('concept').value);
   });
-$('concept').addEventListener('input', ()=> { selectedFormula = ""; });
-   
-  $('btnEx1')     .addEventListener('click', async ()=>{
+
+  $('concept').addEventListener('input', ()=> { selectedFormula = ""; });
+
+  $('btnEx1').addEventListener('click', async ()=>{
     hideAllSections();
-    const d = await call('ex1'); if(!d) return;
-    renderCase('ex1', d); $('secEx1').style.display='block';
+    const d = await call('ex1'); 
+    if (!d) return;
+    renderCase('ex1', d);
+    $('secEx1').style.display = 'block';
+    // نخزن سيناريو المثال الأول لتفادي تكراره في "اختبر فهمي"
+    LAST_EX1_SCENARIO = (d.scenario || '').trim();
   });
 
-  $('btnEx2')     .addEventListener('click', async ()=>{
+  $('btnEx2').addEventListener('click', async ()=>{
     hideAllSections();
-    const d = await call('ex2'); if(!d) return;
-    renderCase('ex2', d); $('secEx2').style.display='block';
+    const d = await call('ex2'); 
+    if (!d) return;
+    renderCase('ex2', d);
+    $('secEx2').style.display = 'block';
   });
 
   $('btnPractice').addEventListener('click', async ()=>{
     hideAllSections();
-    const d = await call('practice'); if(!d) return;
+
+    let tries = 0, d = null;
+    do {
+      d = await call('practice');
+      if (!d) return;
+      tries++;
+    } while (
+      tries < 3 &&
+      (
+        (d.question || '').trim() === (LAST_PRACTICE_QUESTION || '').trim() ||
+        (d.question || '').trim() === (LAST_EX1_SCENARIO || '').trim()
+      )
+    );
+
     LAST_PRACTICE_QUESTION = d.question || '';
     $('practice').innerHTML = MATH.htmlWithMath(LAST_PRACTICE_QUESTION || '—');
-    $('secPractice').style.display='block';
+    $('secPractice').style.display = 'block';
     if (window.MathJax?.typesetPromise) MathJax.typesetPromise();
   });
 
-  $('btnSolve')   .addEventListener('click', async ()=>{
+  $('btnSolve').addEventListener('click', async ()=>{
     hideAllSections();
-    if(!LAST_PRACTICE_QUESTION){
+    if (!LAST_PRACTICE_QUESTION){
       showErr('اعرضي أولاً سؤال "اختبر فهمي" ثم اضغطي "الحل الصحيح".');
       return;
     }
-    const d = await call('solve', {question: LAST_PRACTICE_QUESTION});
-    if(!d) return;
-    renderCase('solve', d); $('secSolve').style.display='block';
+    const d = await call('solve', { question: LAST_PRACTICE_QUESTION });
+    if (!d) return;
+    renderCase('solve', d);
+    $('secSolve').style.display = 'block';
   });
 })();
 // ====== Theme toggle (dark / light) ======
