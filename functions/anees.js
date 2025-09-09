@@ -87,6 +87,10 @@ if (Array.isArray(data.formulas)) {
 tidyPayloadNumbers(data);
 
 return json({ ok: true, data });
+  } catch (e) {
+    return json({ ok:false, error: e?.message || "Unexpected error" }, 500);
+  }
+}; // ← هذا يقفل exports.handler
 
 /* ---------- Helpers ---------- */
 function json(obj, status=200){
