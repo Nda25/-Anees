@@ -110,18 +110,22 @@ function renderFormulas(list = []) {
     btn.className = "pill";
     btn.innerHTML = f; // فيه $...$ أو $$...$$
 
+    // ✨ تحديث جديد: سمات وصول
+    btn.setAttribute("role", "button");
+    btn.setAttribute("aria-pressed", f === selectedFormula ? "true" : "false");
+
     // عند الضغط: نحفظ الاختيار ونبرز الزر
     btn.onclick = () => {
       selectedFormula = f;
       [...box.querySelectorAll(".pill")].forEach(el => {
         el.style.outline = "";
-        el.setAttribute("aria-pressed", "false");
+        el.setAttribute("aria-pressed", "false"); // الكل يصير غير مختار
       });
       btn.style.outline = "2px solid var(--accent)";
-      btn.setAttribute("aria-pressed", "true");
+      btn.setAttribute("aria-pressed", "true"); // الزر الحالي يصير مختار
     };
 
-    // لو هذه الصيغة هي المختارة مسبقًا، برّزيها مباشرة
+    // ✨ ولو الزر هذا كان أصلاً مختار من قبل، نرجع نبرزه
     if (f === selectedFormula) {
       btn.style.outline = "2px solid var(--accent)";
       btn.setAttribute("aria-pressed", "true");
@@ -132,7 +136,7 @@ function renderFormulas(list = []) {
 
   // خلّي MathJax يرسم داخل الأزرار
   if (window.MathJax?.typesetPromise) MathJax.typesetPromise([box]);
-} 
+}
 
 /* --------------------- عناصر واجهة عامة --------------------- */
 const $ = (id) => document.getElementById(id);
