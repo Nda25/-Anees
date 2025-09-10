@@ -206,12 +206,49 @@ if (isExampleLike) {
   }
 
   // لو في صيغة مختارة، تأكد أنها أول عنصر + قيّد الرموز
-  if ((preferred_formula ?? "").trim()) {
-    const pf = (preferred_formula || "").trim();
+if ((preferred_formula ?? "").trim()) {
+  const pf = (preferred_formula || "").trim();
+
+  // اجعلها أول عنصر (احتياط)
+  if (Array.isArray(data.formulas)) {
     const first = (data.formulas[0] || "").trim();
     if (first !== pf) {
       data.formulas = [pf, ...data.formulas.filter(f => (f || "").trim() !== pf)];
     }
+  } else {
+    data.formulas = [pf];
+  }
+
+  // ✅ الرموز في الجدول لازم تكون من نفس رموز الصيغة المختارة
+  const normSym = s => (s || "")
+    .toString()
+    .replace(/\$/g, "")
+    .replace(/[{}]/g, "")
+    .replace(/\\mathrm\{[^}]*\}/g, "")
+    .trim();
+
+  const extractVars = latex => {
+    const t = normSym(latex)
+      .replace(/\\[a-zA-Z]+/g, " ")   // احذف أوامر LaTeX
+      .replace(/[^A-Za-z_]/g, " ");   // أبقِ الحروف والشرطة السفلية
+    return new Set(t.split(/\s+/).filter(Boolean));
+  };
+
+  const allowed = extractVars(pf);
+  const used = new Set([
+    ...((data.givens   || []).map(g => normSym(g.symbol))),
+    ...((data.unknowns || []).map(u => normSym(u.symbol))),
+  ].filter(Boolean));
+
+  for (const s of used) {
+    if (!allowed.has(s)) {
+      return json({ ok:false, error: "FORMULA_SYMBOL_MISMATCH" }, 502);
+    }
+  }
+
+  // ✅ طالما كل شيء سليم، ثبّت القائمة لتحتوي الصيغة المختارة فقط
+  data.formulas = [pf];
+}
 
     // ✅ الرموز في الجدول لازم تكون من نفس رموز الصيغة المختارة
     const normSym = (s) => (s || "")
