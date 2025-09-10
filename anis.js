@@ -219,20 +219,23 @@ function renderExplain(d, concept){
   document.getElementById('exTitle').textContent = d.title || concept || '';
   document.getElementById('chip2').textContent   = concept || '';
 
-  // ----- تعريف overview (نزيل $ اليتيمة + نلفّ الوحدات) -----
+  // ----- تعريف overview (تنظيف $ + تحويلها إلى \( … \) + لفّ الوحدات إن لزم) -----
   {
     let ov = (d.overview || '—') + '';
 
-    // نفك الهروب: "\$" → "$"
+    // 1) نفك الهروب: "\$" → "$"
     ov = ov.replace(/\\\$/g, '$');
 
-    // لو عدد علامات $ فردي → نزيلها كلها لتفادي بقايا غير متطابقة
+    // 2) لو عدد علامات $ فردي → نشيلها كلها (تفادي بقايا غير متطابقة)
     const dollarCount = (ov.match(/\$/g) || []).length;
     if (dollarCount % 2 === 1) {
       ov = ov.replace(/\$/g, '');
     }
 
-    // إذا ما فيه دلائل رياضيات ($ أو \( أو \[) نلفّ الوحدات/الصيغ داخل $
+    // 3) حوّل أي $...$ إلى \( ... \) لضمان قراءة MathJax لها كسطرية
+    ov = ov.replace(/\$([^$]+)\$/g, (_m, inside) => `\$begin:math:text$${inside}\\$end:math:text$`);
+
+    // 4) إذا ما فيه دلائل رياضيات أصلًا، لفّ الوحدات داخل $
     const hasMathDelims = /(\$|\\\(|\\\[)/.test(ov);
     if (!hasMathDelims) {
       ov = ov
@@ -280,7 +283,6 @@ function renderExplain(d, concept){
   sec.style.display = 'block';
   if (window.MathJax?.typesetPromise) MathJax.typesetPromise([sec]);
 }
-
 /** عرض مثال/حل بنفس القالب */
 function renderCase(containerId, data){
   const root = $(containerId); root.innerHTML='';
