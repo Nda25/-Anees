@@ -264,7 +264,10 @@ if (action === "practice") {
 
 // ✅ أخيرًا نرجّع الرد
 return json({ ok: true, data });
-
+} catch (e) {
+  return json({ ok:false, error: e?.message || "Unexpected error" }, 500);
+}
+}; // ← نهاية exports.handler
 /* ---------- Helpers ---------- */
 function json(obj, status=200){
   return {
