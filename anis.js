@@ -209,31 +209,41 @@ if (window.MathJax?.typesetPromise) MathJax.typesetPromise([tbl]);
 }
 
 /** عرض “اشرح لي” */
-// ----- تعريف overview (إزالة $ اليتيمة + تحويل السطرية إلى \( ... \)) -----
-{
-  let ov = (d.overview || '—') + '';
+function renderExplain(d, concept){
+  // نظّفي كل صناديق القسم قبل التعبئة
+  ['overview','expFormulas','symbols','steps'].forEach(id=>{
+    const el = document.getElementById(id);
+    if (el){ el.innerHTML=''; while(el.firstChild) el.removeChild(el.firstChild); }
+  });
 
-  // نفك "\$" -> "$"
-  ov = ov.replace(/\\\$/g, '$');
+  document.getElementById('exTitle').textContent = d.title || concept || '';
+  document.getElementById('chip2').textContent   = concept || '';
 
-  // نحمي الكتل والسطرية الموجودة مؤقتًا
-  const blocks = [], inlines = [];
-  ov = ov.replace(/\\\[([\s\S]*?)\\\]/g, (_, x) => { blocks.push(x); return '§§B'+(blocks.length-1)+'§§'; });
-  ov = ov.replace(/\\\(([\s\S]*?)\\\)/g, (_, x) => { inlines.push(x); return '§§I'+(inlines.length-1)+'§§'; });
-  ov = ov.replace(/\$\$([\s\S]*?)\$\$/g,       (_, x) => { blocks.push(x); return '§§B'+(blocks.length-1)+'§§'; });
-  ov = ov.replace(/\$([^$]+)\$/g,              (_, x) => { inlines.push(x); return '§§I'+(inlines.length-1)+'§§'; });
+  // ----- تعريف overview (نزيل $ اليتيمة + نحوّل السطرية/الكتلية لصيغ MathJax القياسية) -----
+  {
+    let ov = (d.overview || '—') + '';
 
-  // أي $ بقيت الآن يتيمة -> احذفها
-  ov = ov.replace(/\$/g, '');
+    // نفك "\$" -> "$"
+    ov = ov.replace(/\\\$/g, '$');
 
-  // استرجاع: الكتل بصيغة \[...\] والسطرية بصيغة \(...\) (بدون $ نهائيًا)
-  ov = ov
-    .replace(/§§B(\d+)§§/g, (_m, i) => `\$begin:math:display$${blocks[i]}\\$end:math:display$`)
-    .replace(/§§I(\d+)§§/g, (_m, i) => `\$begin:math:text$${inlines[i]}\\$end:math:text$`);
+    // نحمي المعادلات مؤقتًا
+    const blocks = [], inlines = [];
+    ov = ov.replace(/\\\[([\s\S]*?)\\\]/g, (_, x) => { blocks.push(x);  return '§§B'+(blocks.length-1)+'§§'; });
+    ov = ov.replace(/\\\(([\s\S]*?)\\\)/g, (_, x) => { inlines.push(x); return '§§I'+(inlines.length-1)+'§§'; });
+    ov = ov.replace(/\$\$([\s\S]*?)\$\$/g,       (_, x) => { blocks.push(x);  return '§§B'+(blocks.length-1)+'§§'; });
+    ov = ov.replace(/\$([^$]+)\$/g,              (_, x) => { inlines.push(x); return '§§I'+(inlines.length-1)+'§§'; });
 
-  // تمرير للراسم
-  document.getElementById('overview').innerHTML = MATH.htmlWithMath(ov);
-}
+    // أي $ بقيت الآن يتيمة → احذفها
+    ov = ov.replace(/\$/g, '');
+
+    // استرجاع: الكتل \[...\] والسطرية \(...\)
+    ov = ov
+      .replace(/§§B(\d+)§§/g, (_m, i) => `\$begin:math:display$${blocks[i]}\\$end:math:display$`)
+      .replace(/§§I(\d+)§§/g, (_m, i) => `\$begin:math:text$${inlines[i]}\\$end:math:text$`);
+
+    // مرّريه ليترسم
+    document.getElementById('overview').innerHTML = MATH.htmlWithMath(ov);
+  }
 
   // الصيغ (أزرار قابلة للاختيار)
   const expF = document.getElementById('expFormulas');
@@ -264,86 +274,6 @@ if (window.MathJax?.typesetPromise) MathJax.typesetPromise([tbl]);
   sec.style.display = 'block';
   if (window.MathJax?.typesetPromise) MathJax.typesetPromise([sec]);
 }
-
-/** عرض مثال/حل بنفس القالب */
-function renderCase(containerId, data){
-  const root = $(containerId); root.innerHTML='';
-   while (root.firstChild) root.removeChild(root.firstChild);
-  const frag = document.createDocumentFragment();
-
-  // المسألة (سيناريو نصي واضح)
-  const s1=document.createElement('div');
-  s1.innerHTML = `<div class="sub">المسألة</div><div class="box">${MATH.htmlWithMath(data.scenario || data.question || '—')}</div>`;
-  frag.appendChild(s1);
-
-  // المعطيات والمجاهيل (جدول موحد)
-  const s2=document.createElement('div'); s2.className='sub'; s2.textContent='المعطيات والمجاهيل';
-  const b2=document.createElement('div'); b2.className='box';
-  b2.appendChild(renderGivenUnknowns(data.givens||[], data.unknowns||[]));
-  frag.appendChild(s2); frag.appendChild(b2);
-
-  // القوانين المستخدمة (كل قانون بسطر)
-  const s3=document.createElement('div'); s3.className='sub'; s3.textContent='القانون/القوانين المستخدمة';
-  frag.appendChild(s3); frag.appendChild(renderFormulasBox(data.formulas||(data.formula?[data.formula]:[])));
-
-  // الحل والخطوات
-  const s4 = document.createElement('div'); 
-s4.className = 'sub'; 
-s4.textContent = 'الحل والخطوات';
-
-const b4 = document.createElement('div'); 
-b4.className = 'box';
-
-// ____ الخطوات ____
-// ندعم مصفوفة أو نص واحد مفصول بأسطر
-const ol = document.createElement('ol');
-
-const stepsList = Array.isArray(data.steps)
-  ? data.steps
-  : (typeof data.steps === 'string'
-      ? (
-          // لو رجع HTML يحتوي <li>…</li> استخرجي الـ lis
-          data.steps.includes('<li')
-            ? Array.from(data.steps.matchAll(/<li[^>]*>([\s\S]*?)<\/li>/gi)).map(m => m[1])
-            // وإلا حوّلي <br> إلى أسطر ثم قصّيها
-            : data.steps.replace(/<br\s*\/?>/gi, '\n').split(/\r?\n+/)
-        )
-      : []);
-
-stepsList
-  .map(s => s.trim())
-  .filter(Boolean)
-  .forEach(step => {
-    const li = document.createElement('li');
-    li.innerHTML = MATH.htmlWithMath(step);
-    ol.appendChild(li);
-  });
-
-if (ol.children.length) b4.appendChild(ol);
-// ____ النتيجة النهائية (كبيرة وواضحة) ____
-if (data.result){
-  const hr = document.createElement('div');
-  hr.style.height = '1px';
-  hr.style.background = 'color-mix(in oklab, var(--ring) 70%, transparent 30%)';
-  hr.style.margin = '8px 0';
-  b4.appendChild(hr);
-
-  const big = document.createElement('div');
-  big.className = 'math-block';
-
-  const core = (data.result || '').replace(/\$+/g, ''); // إزالة أي $ داخلي
-  const eq   = /^\s*\$\$/.test(data.result) ? data.result : `$$${core}$$`;
-  big.innerHTML = MATH.htmlWithMath(eq);
-
-  b4.appendChild(big);
-}
-
-frag.appendChild(s4); 
-frag.appendChild(b4);
-root.appendChild(frag);
-if (window.MathJax?.typesetPromise) MathJax.typesetPromise([root]);
-} 
-
 /* ---------------------- استدعاء الدالة السحابية ---------------------- */
 let LAST_PRACTICE_QUESTION = '';
 let LAST_EX1_SCENARIO = '';
