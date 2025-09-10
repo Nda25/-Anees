@@ -17,25 +17,24 @@ const MATH = (() => {
   // نضيف backslash للدوال الشائعة لو نقصت (حذرًا من تلوّث رموز عربية)
   const fixLatex = (s) => clean(s).replace(/(^|[^\\])\b(frac|sqrt|mathrm|cdot)\b/g, '$1\\$2');
 
-  // نحافظ على $$...$$ (كتل) و$...$ (سطرية) ونحوّلها لعناصر HTML ليستقبلها MathJax
-  function htmlWithMath(input) {
+ function htmlWithMath(input) {
   let s = fixLatex(input || "");
   const blocks = [], inlines = [];
-     
-// 1) نك الهروب \$ -> $
-s = s.replace(/\\\$/g, '$');
 
-// 2) كتلة رياضية قبل الدولارات \[ ... \]
-s = s.replace(/\\\[([\s\S]*?)\\\]/g, (_, inner) => {
-  blocks.push('$$' + inner + '$$');
-  return '§§B' + (blocks.length - 1) + '§§';
-});
+  // 1) نفك الهروب \$ -> $
+  s = s.replace(/\\\$/g, '$');
 
-// 3) كسطرية قبل الدولارات \( ... \)
-s = s.replace(/\\\(([\s\S]*?)\\\)/g, (_, inner) => {
-  inlines.push('$' + inner + '$');
-  return '§§I' + (inlines.length - 1) + '§§';
-});
+  // 2) كتلة رياضية قبل الدولارات \[ ... \]
+  s = s.replace(/\\\[([\s\S]*?)\\\]/g, (_, inner) => {
+    blocks.push('$$' + inner + '$$');
+    return '§§B' + (blocks.length - 1) + '§§';
+  });
+
+  // 3) سطرية قبل الدولارات \( ... \)
+  s = s.replace(/\\\(([\s\S]*?)\\\)/g, (_, inner) => {
+    inlines.push('$' + inner + '$');
+    return '§§I' + (inlines.length - 1) + '§§';
+  });
 
   // 4) التقاط $$...$$ (كتل)
   s = s.replace(/\$\$([\s\S]*?)\$\$/g, (_, inner) => {
@@ -49,13 +48,13 @@ s = s.replace(/\\\(([\s\S]*?)\\\)/g, (_, inner) => {
     return '§§I' + (inlines.length - 1) + '§§';
   });
 
+  // 5.5) الآن المعادلات مخبأة كبلايسهولدر — لفّي أي \mathrm{...} عارية فقط
+  s = s.replace(/(\\mathrm\{[^}]+\})/g, (_m, mm) => `<span class="math-inline">$${mm}$</span>`);
+
   // 6) إعادة الحقن ليرسمها MathJax
   s = s
     .replace(/§§B(\d+)§§/g, (_, i) => `<div class="math-block">${blocks[i]}</div>`)
     .replace(/§§I(\d+)§§/g, (_, i) => `<span class="math-inline">${inlines[i]}</span>`);
-
-  // 7) لفّ أي \mathrm{...} بقيت عارية
-s = s.replace(/(\\mathrm\{[^}]+\})/g, (_m, mm) => `<span class="math-inline">$${mm}$</span>`);
 
   return s;
 }
