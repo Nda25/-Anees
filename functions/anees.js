@@ -188,7 +188,41 @@ if (Array.isArray(data.formulas)) {
 
 // ترتيب الأعداد (منع 1e3 إلخ)
 tidyPayloadNumbers(data);
+// ===== حارس جودة الاستجابة قبل الإرجاع =====
+const isExampleLike = (action === "example" || action === "example2" || action === "solve");
 
+if (isExampleLike) {
+  const missing =
+    !data.scenario ||
+    !Array.isArray(data.givens)   || data.givens.length   === 0 ||
+    !Array.isArray(data.unknowns) || data.unknowns.length === 0 ||
+    !Array.isArray(data.formulas) || data.formulas.length === 0 ||
+    !Array.isArray(data.steps)    || data.steps.length    === 0 ||
+    !data.result;
+
+  // لو النموذج رجّع مثال ناقص نرفضه (الفرونت سيعرض رسالة ويحاولي مرة ثانية يدويًا)
+  if (missing) {
+    return json({ ok: false, error: "INCOMPLETE_EXAMPLE" }, 502);
+  }
+
+  // لو في صيغة مختارة، تأكد أنها أول عنصر
+  if ((preferred_formula ?? "").trim()) {
+    const pf = (preferred_formula || "").trim();
+    const first = (data.formulas[0] || "").trim();
+    if (first !== pf) {
+      // ضعه أولاً (احتياط)
+      data.formulas = [pf, ...data.formulas.filter(f => (f || "").trim() !== pf)];
+    }
+  }
+}
+
+if (action === "practice") {
+  const q = (data?.question || "").trim();
+  const conceptIn = q.includes(concept);
+  if (!q || !conceptIn) {
+    return json({ ok: false, error: "INCOMPLETE_PRACTICE_QUESTION" }, 502);
+  }
+}
 return json({ ok: true, data });
   } catch (e) {
     return json({ ok:false, error: e?.message || "Unexpected error" }, 500);
