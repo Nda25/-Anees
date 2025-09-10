@@ -357,6 +357,7 @@ async function call(action, extra){
   const concept = ($('concept').value || '').trim();
   if (!concept){ showErr('أدخلي اسم القانون/المفهوم أولًا.'); return null; }
 
+  // نص الحالة في الزرار
   setBusy({
     explain:'جارٍ توليد الشرح…',
     ex1:'جارٍ إنشاء المثال…',
@@ -365,36 +366,51 @@ async function call(action, extra){
     solve:'جارٍ الحل…'
   }[action] || 'جارٍ العمل…');
 
-  try{
-    const res = await fetch('/.netlify/functions/anees', {
-  method:'POST',
-  headers:{'Content-Type':'application/json'},
-  body: JSON.stringify({
-    action: {explain:'explain',ex1:'example',ex2:'example2',practice:'practice',solve:'solve'}[action] || action,
-    concept,
-    question: extra?.question || null,
-    // 👇 أرسلي الصيغة المختارة (إن وُجدت)
-    preferred_formula: selectedFormula || ""
-  })
-});
+  try {
+    // نحاول حتى 3 مرات لو الخطأ INCOMPLETE_EXAMPLE (أو شبيه)
+    const maxTries = (/^(ex1|ex2|solve)$/.test(action)) ? 3 : 1;
 
-    const txt = await res.text();
-    let json = null;
-    try{ json = JSON.parse(txt); }catch(_){ /* نحاول دائمًا */ }
+    for (let tryNo = 1; tryNo <= maxTries; tryNo++) {
+      const res = await fetch('/.netlify/functions/anees', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({
+          action: {explain:'explain',ex1:'example',ex2:'example2',practice:'practice',solve:'solve'}[action] || action,
+          concept,
+          question: extra?.question || null,
+          preferred_formula: selectedFormula || ""
+        })
+      });
 
-    if(!res.ok){
-      const msg = (json && json.error) ? json.error : (txt.slice(0,300) || ('HTTP '+res.status));
-      throw new Error(msg);
+      const txt = await res.text();
+      let json = null;
+      try { json = JSON.parse(txt); } catch(_) {}
+
+      // نجاح صريح
+      if (res.ok && json && json.ok !== false) {
+        return json.data || json;
+      }
+
+      // استخرج الرسالة (سواء من body أو النص)
+      const errMsg = (json && (json.error || json?.data?.error)) || txt || ('HTTP '+res.status);
+      const isIncomplete = /INCOMPLETE_EXAMPLE/i.test(errMsg);
+
+      // لو مثال ناقص وجربنا أقل من الحد، نعيد المحاولة
+      if (isIncomplete && tryNo < maxTries) {
+        await new Promise(r => setTimeout(r, 450));
+        continue;
+      }
+
+      // غير ذلك: ارمي الخطأ
+      throw new Error(errMsg);
     }
 
-    const payload = json?.data || json;
-    if (payload?.error){ throw new Error(payload.error); }
-    return payload;
-
-  }catch(err){
+    // لو خلصت الحلقة بدون return (نادرًا)
+    throw new Error('تعذّر إنشاء مثال مكتمل.');
+  } catch (err) {
     showErr(err.message || 'حدث خطأ غير متوقع.');
     return null;
-  }finally{
+  } finally {
     setBusy('');
   }
 }
