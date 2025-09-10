@@ -283,75 +283,61 @@ function renderCase(id, d){
 
   // نظّفي الحاوية أولًا
   box.innerHTML = '';
+  box.style.textAlign = "center";   // ✨ كل العناصر بشكل افتراضي في الوسط
 
-  // 0) عنوان: المسألة
-  const hQ = document.createElement('h3');
-  hQ.className = 'sub';
-  hQ.style.textAlign = 'center';
-  hQ.textContent = 'المسألة';
-  box.appendChild(hQ);
-
-  // 1) نص المسألة
+  // 1) المسألة (نص عربي → يمين)
   if (d.scenario) {
     const p = document.createElement('p');
-    p.innerHTML = MATH.htmlWithMath(d.scenario); // يدعم LaTeX داخل السؤال
-    p.style.margin = '6px 0 10px';
+    p.innerHTML = MATH.htmlWithMath(d.scenario);
+    p.style.textAlign = "right";   // ✨ نخلي نص المسألة يبدأ من اليمين
     box.appendChild(p);
   }
 
   // 2) جدول المعطيات والمجاهيل
   if ((d.givens && d.givens.length) || (d.unknowns && d.unknowns.length)) {
     const tbl = renderGivenUnknowns(d.givens || [], d.unknowns || []);
-    tbl.style.margin = '10px 0'; // مسافة قبل/بعد الجدول
+    tbl.style.margin = "16px auto";    // ✨ يوسّط الجدول
     box.appendChild(tbl);
   }
 
-  // 3) الصيغة/القوانين
+  // 3) الصيغ
   if (Array.isArray(d.formulas) && d.formulas.length) {
-    const fbox = renderFormulasBox(d.formulas);
-    fbox.style.margin = '10px 0'; // مسافة قبل/بعد القوانين
-    box.appendChild(fbox);
+    const fBox = renderFormulasBox(d.formulas);
+    fBox.style.margin = "16px auto";   // ✨ يوسّط صندوق القوانين
+    box.appendChild(fBox);
   }
 
-  // 4) عنوان: خطوات الحل
+  // 4) خطوات الحل
   if (Array.isArray(d.steps) && d.steps.length) {
-    const hS = document.createElement('h3');
-    hS.className = 'sub';
-    hS.style.textAlign = 'center';
-    hS.textContent = 'خطوات الحل';
-    hS.style.marginTop = '6px';
-    box.appendChild(hS);
+    const hSteps = document.createElement('h3');
+    hSteps.textContent = "خطوات الحل";
+    hSteps.style.textAlign = "center"; 
+    box.appendChild(hSteps);
 
-    // 4.1) خطوات الحل
     const ol = document.createElement('ol');
-    ol.className = 'box center';
-    ol.style.textAlign = 'right';
-    ol.style.lineHeight = '1.7';
+    ol.style.textAlign = "right";  // ✨ الخطوات نص عربي → يمين
     (d.steps || []).forEach(s => {
       const li = document.createElement('li');
-      li.innerHTML = MATH.htmlWithMath(s);  // يدعم LaTeX داخل الخطوة
+      li.innerHTML = MATH.htmlWithMath(s);
       ol.appendChild(li);
     });
     box.appendChild(ol);
   }
 
-  // 5) عنوان + النتيجة النهائية
+  // 5) النتيجة النهائية
   if (d.result) {
-    const hR = document.createElement('h3');
-    hR.className = 'sub';
-    hR.style.textAlign = 'center';
-    hR.textContent = 'النتيجة النهائية';
-    hR.style.marginTop = '8px';
-    box.appendChild(hR);
+    const hRes = document.createElement('h3');
+    hRes.textContent = "النتيجة النهائية";
+    hRes.style.textAlign = "center"; 
+    box.appendChild(hRes);
 
     const div = document.createElement('div');
     div.className = 'math-block';
-    div.style.margin = '8px 0 0';
     div.innerHTML = MATH.htmlWithMath(d.result);
+    div.style.marginTop = "8px";
     box.appendChild(div);
   }
 
-  // 6) Typeset للجزء كامل
   if (window.MathJax?.typesetPromise) MathJax.typesetPromise([box]);
 }
 /* ---------------------- استدعاء الدالة السحابية ---------------------- */
