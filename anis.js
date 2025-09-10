@@ -276,6 +276,7 @@ function renderExplain(d, concept){
   if (window.MathJax?.typesetPromise) MathJax.typesetPromise([sec]);
 }
 /* ---------------------- عرض "مثال تطبيقي" / "مثال آخر" / "الحل الصحيح" ---------------------- */
+/* ---------------------- عرض "مثال تطبيقي" / "مثال آخر" / "الحل الصحيح" ---------------------- */
 function renderCase(id, d){
   const box = document.getElementById(id);
   if (!box) return;
@@ -283,47 +284,69 @@ function renderCase(id, d){
   // نظّفي الحاوية أولًا
   box.innerHTML = '';
 
-// 1) السيناريو (عنوان + نص المسألة)
-if (d.scenario) {
-  const h3 = document.createElement('h3');
-  h3.className = 'sub';
-  h3.style.textAlign = 'center';
-  h3.textContent = 'المسألة';
-  box.appendChild(h3);
+  // 0) عنوان: المسألة
+  const hQ = document.createElement('h3');
+  hQ.className = 'sub';
+  hQ.style.textAlign = 'center';
+  hQ.textContent = 'المسألة';
+  box.appendChild(hQ);
 
-  const p = document.createElement('div');
-  p.className = 'box';
-  p.style.textAlign = 'right';
-  p.style.lineHeight = '1.8';
-  p.innerHTML = MATH.htmlWithMath(d.scenario);  // نص المسألة مع LaTeX
-  box.appendChild(p);
-}
+  // 1) نص المسألة
+  if (d.scenario) {
+    const p = document.createElement('p');
+    p.innerHTML = MATH.htmlWithMath(d.scenario); // يدعم LaTeX داخل السؤال
+    p.style.margin = '6px 0 10px';
+    box.appendChild(p);
+  }
 
   // 2) جدول المعطيات والمجاهيل
   if ((d.givens && d.givens.length) || (d.unknowns && d.unknowns.length)) {
-    box.appendChild(renderGivenUnknowns(d.givens || [], d.unknowns || []));
+    const tbl = renderGivenUnknowns(d.givens || [], d.unknowns || []);
+    tbl.style.margin = '10px 0'; // مسافة قبل/بعد الجدول
+    box.appendChild(tbl);
   }
 
-  // 3) الصيغ
+  // 3) الصيغة/القوانين
   if (Array.isArray(d.formulas) && d.formulas.length) {
-    box.appendChild(renderFormulasBox(d.formulas));
+    const fbox = renderFormulasBox(d.formulas);
+    fbox.style.margin = '10px 0'; // مسافة قبل/بعد القوانين
+    box.appendChild(fbox);
   }
 
-  // 4) خطوات الحل
+  // 4) عنوان: خطوات الحل
   if (Array.isArray(d.steps) && d.steps.length) {
+    const hS = document.createElement('h3');
+    hS.className = 'sub';
+    hS.style.textAlign = 'center';
+    hS.textContent = 'خطوات الحل';
+    hS.style.marginTop = '6px';
+    box.appendChild(hS);
+
+    // 4.1) خطوات الحل
     const ol = document.createElement('ol');
+    ol.className = 'box center';
+    ol.style.textAlign = 'right';
+    ol.style.lineHeight = '1.7';
     (d.steps || []).forEach(s => {
       const li = document.createElement('li');
-      li.innerHTML = MATH.htmlWithMath(s);  // فيه LaTeX
+      li.innerHTML = MATH.htmlWithMath(s);  // يدعم LaTeX داخل الخطوة
       ol.appendChild(li);
     });
     box.appendChild(ol);
   }
 
-  // 5) النتيجة النهائية
+  // 5) عنوان + النتيجة النهائية
   if (d.result) {
+    const hR = document.createElement('h3');
+    hR.className = 'sub';
+    hR.style.textAlign = 'center';
+    hR.textContent = 'النتيجة النهائية';
+    hR.style.marginTop = '8px';
+    box.appendChild(hR);
+
     const div = document.createElement('div');
     div.className = 'math-block';
+    div.style.margin = '8px 0 0';
     div.innerHTML = MATH.htmlWithMath(d.result);
     box.appendChild(div);
   }
