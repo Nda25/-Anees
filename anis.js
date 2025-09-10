@@ -209,6 +209,7 @@ if (window.MathJax?.typesetPromise) MathJax.typesetPromise([tbl]);
 }
 
 /** عرض “اشرح لي” */
+/** عرض “اشرح لي” */
 function renderExplain(d, concept){
   // نظّفي كل صناديق القسم قبل التعبئة
   ['overview','expFormulas','symbols','steps'].forEach(id=>{
@@ -219,27 +220,30 @@ function renderExplain(d, concept){
   document.getElementById('exTitle').textContent = d.title || concept || '';
   document.getElementById('chip2').textContent   = concept || '';
 
-  // ----- تعريف overview (نزيل $ اليتيمة + نسترجع المعادلات بشكل صحيح) -----
+  // ===== overview: احمي المعادلات الصحيحة وامسحي $ اليتيمة =====
   {
     let ov = (d.overview || '—') + '';
 
     // نفك "\$" -> "$"
     ov = ov.replace(/\\\$/g, '$');
 
-    // نخزّن المعادلات مؤقتًا
-    const blocks = [], inlines = [];
-    ov = ov.replace(/\\\[([\s\S]*?)\\\]/g, (_, x) => { blocks.push(x);  return '§§B'+(blocks.length-1)+'§§'; });
-    ov = ov.replace(/\\\(([\s\S]*?)\\\)/g, (_, x) => { inlines.push(x); return '§§I'+(inlines.length-1)+'§§'; });
-    ov = ov.replace(/\$\$([\s\S]*?)\$\$/g,       (_, x) => { blocks.push(x);  return '§§B'+(blocks.length-1)+'§§'; });
-    ov = ov.replace(/\$([^$]+)\$/g,              (_, x) => { inlines.push(x); return '§§I'+(inlines.length-1)+'§§'; });
+    // نحمي $$...$$ أولاً ثم $...$
+    const keep = [];
+    ov = ov.replace(/\$\$([\s\S]*?)\$\$/g, (_, x) => {
+      keep.push({ t: 'B', x: `$$${x}$$` });
+      return `§§K${keep.length - 1}§§`;
+    });
+    ov = ov.replace(/\$([^$]+)\$/g, (_, x) => {
+      keep.push({ t: 'I', x: `$${x}$` });
+      return `§§K${keep.length - 1}§§`;
+    });
 
-    // أي $ متبقية الآن يتيمة → احذفها
+    // أي $ يتيمة متبقية نحذفها
     ov = ov.replace(/\$/g, '');
 
-    // استرجاع: الكتل $$...$$ والسطرية \( ... \)
-ov = ov
-  .replace(/§§B(\d+)§§/g, (_m, i) => `$$${blocks[i]}$$`)
-  .replace(/§§I(\d+)§§/g, (_m, i) => `\$begin:math:text$${inlines[i]}\\$end:math:text$`);
+    // نعيد ما حفظناه كما هو (بدون أي begin:/end: غريبة)
+    ov = ov.replace(/§§K(\d+)§§/g, (_m, i) => keep[i].x);
+
     document.getElementById('overview').innerHTML = MATH.htmlWithMath(ov);
   }
 
