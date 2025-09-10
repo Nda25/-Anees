@@ -277,67 +277,77 @@ function renderExplain(d, concept){
 }
 /* ---------------------- عرض "مثال تطبيقي" / "مثال آخر" / "الحل الصحيح" ---------------------- */
 /* ---------------------- عرض "مثال تطبيقي" / "مثال آخر" / "الحل الصحيح" ---------------------- */
+/* ---------------------- عرض "مثال تطبيقي" / "مثال آخر" / "الحل الصحيح" ---------------------- */
 function renderCase(id, d){
   const box = document.getElementById(id);
   if (!box) return;
 
   // نظّفي الحاوية أولًا
   box.innerHTML = '';
-  box.style.textAlign = "center";   // ✨ كل العناصر بشكل افتراضي في الوسط
 
-  // 1) المسألة (نص عربي → يمين)
+  // مساعد صغير لعناوين الأقسام
+  const addSub = (txt) => {
+    const h = document.createElement('h3');
+    h.className = 'sub';
+    h.style.textAlign = 'center';
+    h.textContent = txt;
+    box.appendChild(h);
+  };
+
+  // =========== 1) المسألة ===========
   if (d.scenario) {
-    const p = document.createElement('p');
-    p.innerHTML = MATH.htmlWithMath(d.scenario);
-    p.style.textAlign = "right";   // ✨ نخلي نص المسألة يبدأ من اليمين
-    box.appendChild(p);
+    addSub('المسألة');
+    const scen = document.createElement('div');
+    scen.className = 'box center';
+    scen.style.textAlign = 'right';          // نص المسألة من اليمين
+    scen.style.lineHeight = '1.9';
+    scen.innerHTML = MATH.htmlWithMath(d.scenario);
+    box.appendChild(scen);
   }
 
-  // 2) جدول المعطيات والمجاهيل
+  // =========== 2) المعطيات والمجاهيل ===========
   if ((d.givens && d.givens.length) || (d.unknowns && d.unknowns.length)) {
-    const tbl = renderGivenUnknowns(d.givens || [], d.unknowns || []);
-    tbl.style.margin = "16px auto";    // ✨ يوسّط الجدول
-    box.appendChild(tbl);
+    addSub('المعطيات والمجاهيل');
+    box.appendChild(renderGivenUnknowns(d.givens || [], d.unknowns || []));
   }
 
-  // 3) الصيغ
+  // =========== 3) الصيغ/القانون ===========
   if (Array.isArray(d.formulas) && d.formulas.length) {
-    const fBox = renderFormulasBox(d.formulas);
-    fBox.style.margin = "16px auto";   // ✨ يوسّط صندوق القوانين
-    box.appendChild(fBox);
+    addSub('القانون / الصيغ');
+    box.appendChild(renderFormulasBox(d.formulas));
   }
 
-  // 4) خطوات الحل
+  // =========== 4) خطوات الحل ===========
   if (Array.isArray(d.steps) && d.steps.length) {
-    const hSteps = document.createElement('h3');
-    hSteps.textContent = "خطوات الحل";
-    hSteps.style.textAlign = "center"; 
-    box.appendChild(hSteps);
-
+    addSub('خطوات الحل');
+    const stepsWrap = document.createElement('div');
+    stepsWrap.className = 'box center';
     const ol = document.createElement('ol');
-    ol.style.textAlign = "right";  // ✨ الخطوات نص عربي → يمين
-    (d.steps || []).forEach(s => {
+    ol.style.textAlign = 'right';           // خطوات من اليمين
+    ol.style.lineHeight = '1.9';
+    d.steps.forEach(s => {
       const li = document.createElement('li');
       li.innerHTML = MATH.htmlWithMath(s);
       ol.appendChild(li);
     });
-    box.appendChild(ol);
+    stepsWrap.appendChild(ol);
+    box.appendChild(stepsWrap);
   }
 
-  // 5) النتيجة النهائية
+  // =========== 5) النتيجة النهائية ===========
   if (d.result) {
-    const hRes = document.createElement('h3');
-    hRes.textContent = "النتيجة النهائية";
-    hRes.style.textAlign = "center"; 
-    box.appendChild(hRes);
-
-    const div = document.createElement('div');
-    div.className = 'math-block';
-    div.innerHTML = MATH.htmlWithMath(d.result);
-    div.style.marginTop = "8px";
-    box.appendChild(div);
+    addSub('النتيجة النهائية');
+    const res = document.createElement('div');
+    res.className = 'box center';
+    // نخلي المعادلة في سطر كبير وسط
+    const eq = document.createElement('div');
+    eq.className = 'math-block';
+    eq.innerHTML = MATH.htmlWithMath(d.result);
+    res.appendChild(eq);
+    box.appendChild(res);
   }
 
+  // Typeset
   if (window.MathJax?.typesetPromise) MathJax.typesetPromise([box]);
 }
 /* ---------------------- استدعاء الدالة السحابية ---------------------- */
