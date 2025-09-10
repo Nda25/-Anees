@@ -190,6 +190,7 @@ if (Array.isArray(data.formulas)) {
 tidyPayloadNumbers(data);
 
 // ===== حارس جودة الاستجابة قبل الإرجاع =====
+// ===== حارس جودة الاستجابة قبل الإرجاع =====
 const isExampleLike = (action === "example" || action === "example2" || action === "solve");
 
 if (isExampleLike) {
@@ -202,14 +203,14 @@ if (isExampleLike) {
     !data.result;
 
   if (missing) {
-    return json({ ok:false, error:"INCOMPLETE_EXAMPLE" }, 502);
+    return json({ ok:false, error: "INCOMPLETE_EXAMPLE" }, 502);
   }
 
   // لو في صيغة مختارة، ثبّتيها واحصري الرموز عليها
   if ((preferred_formula ?? "").trim()) {
     const pf = (preferred_formula || "").trim();
 
-    // اجعلها أول عنصر (احتياط)
+    // اجعلها أول عنصر (واحد فقط)
     if (!Array.isArray(data.formulas)) data.formulas = [];
     data.formulas = [pf, ...data.formulas.filter(f => (f || "").trim() !== pf)];
 
@@ -230,11 +231,11 @@ if (isExampleLike) {
 
     const allowed = extractVars(pf);
 
-    // 1) اسمحي فقط بالرموز المسموحة داخل الجداول
+    // اسمحي فقط بالرموز المسموحة داخل الجداول
     data.givens   = (data.givens   || []).filter(g => allowed.has(normSym(g.symbol)));
     data.unknowns = (data.unknowns || []).filter(u => allowed.has(normSym(u.symbol)));
 
-    // 2) لو بعد التنظيف صار الجدول ناقص → اعتبريه غير مكتمل لتُعاد المحاولة من الواجهة
+    // تحقق بعد التنظيف
     const missingAfterClean =
       !data.scenario ||
       !Array.isArray(data.givens)   || data.givens.length   === 0 ||
@@ -243,18 +244,15 @@ if (isExampleLike) {
       !data.result;
 
     if (missingAfterClean) {
-      return json({ ok:false, error:"INCOMPLETE_EXAMPLE" }, 502);
+      return json({ ok:false, error: "INCOMPLETE_EXAMPLE" }, 502);
     }
 
-    // 3) ثبّت أن قائمة الصيغ تحتوي الصيغة المختارة فقط
+    // ثبّت القائمة لتحتوي الصيغة المختارة فقط
     data.formulas = [pf];
   }
 }
-    // طالما كل شيء سليم، ثبّت القائمة لتحتوي الصيغة المختارة فقط
-    data.formulas = [pf];
-  }
-}
-    // ✅ تحقق من سؤال "اختبر فهمي"
+
+// تحقق من سؤال "اختبر فهمي"
 if (action === "practice") {
   const q = (data?.question || "").trim();
   const conceptIn = q.includes(concept);
@@ -270,6 +268,7 @@ return json({ ok: true, data });
   return json({ ok:false, error: e?.message || "Unexpected error" }, 500);
 }
 }; // ← نهاية exports.handler
+
 /* ---------- Helpers ---------- */
 function json(obj, status=200){
   return {
