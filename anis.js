@@ -219,29 +219,28 @@ function renderExplain(d, concept){
   document.getElementById('exTitle').textContent = d.title || concept || '';
   document.getElementById('chip2').textContent   = concept || '';
 
-  // ----- تعريف overview (نزيل $ اليتيمة + نحوّل السطرية/الكتلية لصيغ MathJax القياسية) -----
+  // ----- تعريف overview (نزيل $ اليتيمة + نسترجع المعادلات بشكل صحيح) -----
   {
     let ov = (d.overview || '—') + '';
 
     // نفك "\$" -> "$"
     ov = ov.replace(/\\\$/g, '$');
 
-    // نحمي المعادلات مؤقتًا
+    // نخزّن المعادلات مؤقتًا
     const blocks = [], inlines = [];
     ov = ov.replace(/\\\[([\s\S]*?)\\\]/g, (_, x) => { blocks.push(x);  return '§§B'+(blocks.length-1)+'§§'; });
     ov = ov.replace(/\\\(([\s\S]*?)\\\)/g, (_, x) => { inlines.push(x); return '§§I'+(inlines.length-1)+'§§'; });
     ov = ov.replace(/\$\$([\s\S]*?)\$\$/g,       (_, x) => { blocks.push(x);  return '§§B'+(blocks.length-1)+'§§'; });
     ov = ov.replace(/\$([^$]+)\$/g,              (_, x) => { inlines.push(x); return '§§I'+(inlines.length-1)+'§§'; });
 
-    // أي $ بقيت الآن يتيمة → احذفها
+    // أي $ متبقية الآن يتيمة → احذفها
     ov = ov.replace(/\$/g, '');
 
-    // استرجاع: الكتل \[...\] والسطرية \(...\)
+    // استرجاع: الكتل $$...$$ والسطرية \( ... \)
     ov = ov
-    .replace(/§§B(\d+)§§/g, (_m, i) => `\$begin:math:display$${blocks[i]}\\$end:math:display$`)
-       .replace(/§§I(\d+)§§/g, (_m, i) => `\$begin:math:text$${inlines[i]}\\$end:math:text$`);
+      .replace(/§§B(\d+)§§/g, (_m, i) => `$$${blocks[i]}$$`)
+      .replace(/§§I(\d+)§§/g, (_m, i) => `\$begin:math:text$${inlines[i]}\\$end:math:text$`);
 
-    // مرّريه ليترسم
     document.getElementById('overview').innerHTML = MATH.htmlWithMath(ov);
   }
 
