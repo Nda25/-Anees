@@ -202,66 +202,29 @@ if (isExampleLike) {
     !data.result;
 
   if (missing) {
-    return json({ ok: false, error: "INCOMPLETE_EXAMPLE" }, 502);
+    return json({ ok:false, error: "INCOMPLETE_EXAMPLE" }, 502);
   }
 
-  // لو في صيغة مختارة، تأكد أنها أول عنصر + قيّد الرموز
-if ((preferred_formula ?? "").trim()) {
-  const pf = (preferred_formula || "").trim();
+  // لو في صيغة مختارة، ثبّتيها واحصري الرموز عليها
+  if ((preferred_formula ?? "").trim()) {
+    const pf = (preferred_formula || "").trim();
 
-  // اجعلها أول عنصر (احتياط)
-  if (Array.isArray(data.formulas)) {
-    const first = (data.formulas[0] || "").trim();
-    if (first !== pf) {
-      data.formulas = [pf, ...data.formulas.filter(f => (f || "").trim() !== pf)];
-    }
-  } else {
-    data.formulas = [pf];
-  }
+    // اجعلها أول عنصر (واحد فقط)
+    if (!Array.isArray(data.formulas)) data.formulas = [];
+    data.formulas = [pf, ...data.formulas.filter(f => (f || "").trim() !== pf)];
 
-  // ✅ الرموز في الجدول لازم تكون من نفس رموز الصيغة المختارة
-  const normSym = s => (s || "")
-    .toString()
-    .replace(/\$/g, "")
-    .replace(/[{}]/g, "")
-    .replace(/\\mathrm\{[^}]*\}/g, "")
-    .trim();
-
-  const extractVars = latex => {
-    const t = normSym(latex)
-      .replace(/\\[a-zA-Z]+/g, " ")   // احذف أوامر LaTeX
-      .replace(/[^A-Za-z_]/g, " ");   // أبقِ الحروف والشرطة السفلية
-    return new Set(t.split(/\s+/).filter(Boolean));
-  };
-
-  const allowed = extractVars(pf);
-  const used = new Set([
-    ...((data.givens   || []).map(g => normSym(g.symbol))),
-    ...((data.unknowns || []).map(u => normSym(u.symbol))),
-  ].filter(Boolean));
-
-  for (const s of used) {
-    if (!allowed.has(s)) {
-      return json({ ok:false, error: "FORMULA_SYMBOL_MISMATCH" }, 502);
-    }
-  }
-
-  // ✅ طالما كل شيء سليم، ثبّت القائمة لتحتوي الصيغة المختارة فقط
-  data.formulas = [pf];
-}
-
-    // ✅ الرموز في الجدول لازم تكون من نفس رموز الصيغة المختارة
-    const normSym = (s) => (s || "")
+    // الرموز المسموحة مأخوذة من الصيغة المختارة
+    const normSym = s => (s || "")
       .toString()
       .replace(/\$/g, "")
       .replace(/[{}]/g, "")
       .replace(/\\mathrm\{[^}]*\}/g, "")
       .trim();
 
-    const extractVars = (latex) => {
+    const extractVars = latex => {
       const t = normSym(latex)
-        .replace(/\\[a-zA-Z]+/g, " ") // شيل أوامر LaTeX
-        .replace(/[^A-Za-z_]/g, " "); // خلِّ الحروف والـ _
+        .replace(/\\[a-zA-Z]+/g, " ")
+        .replace(/[^A-Za-z_]/g, " ");
       return new Set(t.split(/\s+/).filter(Boolean));
     };
 
@@ -276,17 +239,20 @@ if ((preferred_formula ?? "").trim()) {
         return json({ ok:false, error: "FORMULA_SYMBOL_MISMATCH" }, 502);
       }
     }
+
+    // طالما كل شيء سليم، ثبّت القائمة لتحتوي الصيغة المختارة فقط
+    data.formulas = [pf];
   }
 }
-
-// تحقق من سؤال "اختبر فهمي"
+    // ✅ تحقق من سؤال "اختبر فهمي"
 if (action === "practice") {
   const q = (data?.question || "").trim();
   const conceptIn = q.includes(concept);
   if (!q || !conceptIn) {
-    return json({ ok: false, error: "INCOMPLETE_PRACTICE_QUESTION" }, 502);
+    return json({ ok:false, error: "INCOMPLETE_PRACTICE_QUESTION" }, 502);
   }
 }
+
 // ✅ أخيرًا نرجّع الرد
 return json({ ok: true, data });
 
