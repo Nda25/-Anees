@@ -55,7 +55,7 @@ s = s.replace(/\\\(([\s\S]*?)\\\)/g, (_, inner) => {
     .replace(/§§I(\d+)§§/g, (_, i) => `<span class="math-inline">${inlines[i]}</span>`);
 
   // 7) لفّ أي \mathrm{...} بقيت عارية
-  s = s.replace(/(\\mathrm\{[^}]+\})/g, '<span class="math-inline">$$$1$$</span>');
+s = s.replace(/(\\mathrm\{[^}]+\})/g, (_m, mm) => `<span class="math-inline">$${mm}$</span>`);
 
   return s;
 }
@@ -220,32 +220,32 @@ function renderExplain(d, concept){
   document.getElementById('exTitle').textContent = d.title || concept || '';
   document.getElementById('chip2').textContent   = concept || '';
 
-  // ===== overview: احمي المعادلات الصحيحة وامسحي $ اليتيمة =====
-  {
-    let ov = (d.overview || '—') + '';
+// ===== overview: احمي المعادلات الصحيحة وامسحي $ اليتيمة =====
+{
+  let ov = (d.overview || '—') + '';
 
-    // نفك "\$" -> "$"
-    ov = ov.replace(/\\\$/g, '$');
+  // نفك "\$" -> "$"
+  ov = ov.replace(/\\\$/g, '$');
 
-    // نحمي $$...$$ أولاً ثم $...$
-    const keep = [];
-    ov = ov.replace(/\$\$([\s\S]*?)\$\$/g, (_, x) => {
-      keep.push({ t: 'B', x: `$$${x}$$` });
-      return `§§K${keep.length - 1}§§`;
-    });
-    ov = ov.replace(/\$([^$]+)\$/g, (_, x) => {
-      keep.push({ t: 'I', x: `$${x}$` });
-      return `§§K${keep.length - 1}§§`;
-    });
+  // نحمي $$...$$ أولاً ثم $...$
+  const keep = [];
+  ov = ov.replace(/\$\$([\s\S]*?)\$\$/g, (_, x) => {
+    keep.push({ t: 'B', x: `$$${x}$$` });
+    return `§§K${keep.length - 1}§§`;
+  });
+  ov = ov.replace(/\$([^$]+)\$/g, (_, x) => {
+    keep.push({ t: 'I', x: `$${x}$` });
+    return `§§K${keep.length - 1}§§`;
+  });
 
+  // أي $ بقيت الآن يتيمة → احذفها
+  ov = ov.replace(/\$/g, '');
 
-s = s.replace(/(\\mathrm\{[^}]+\})/g, (_m, mm) => `<span class="math-inline">$${mm}$</span>`);
+  // نعيد ما حفظناه كما هو
+  ov = ov.replace(/§§K(\d+)§§/g, (_m, i) => keep[i].x);
 
-    // نعيد ما حفظناه كما هو (بدون أي begin:/end: غريبة)
-    ov = ov.replace(/§§K(\d+)§§/g, (_m, i) => keep[i].x);
-
-    document.getElementById('overview').innerHTML = MATH.htmlWithMath(ov);
-  }
+  document.getElementById('overview').innerHTML = MATH.htmlWithMath(ov);
+} 
 
   // الصيغ (أزرار قابلة للاختيار)
   const expF = document.getElementById('expFormulas');
