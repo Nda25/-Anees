@@ -201,18 +201,78 @@ function checkExampleCompleteness(d) {
   if (!has(d.result))   miss.push('result');
   return { ok: miss.length === 0, missing: miss };
 }
+// يحاول إكمال مثال ناقص إلى المخطط الكامل
+async function repairExample(data, concept, preferred_formula, url) {
+  try {
+    const want = `
+أعيدي JSON بالمفاتيح التالية فقط:
+{
+  "scenario": "<نص مسألة عربية واضحة ويذكر «${concept}»>",
+  "givens":   [ { "symbol":"...", "value":"...", "unit":"\\\\mathrm{...}", "desc":"..." } ],
+  "unknowns": [ { "symbol":"...", "desc":"..." } ],
+  "formulas": [ "<صيغة LaTeX واحدة على الأكثر>" ],
+  "steps":    [ "خطوات عربية مع تعويض عددي داخل $...$ في كل خطوة" ],
+  "result":   "$$<النتيجة مع وحدة \\\\mathrm{...}>$$"
+}
+شروط إلزامية:
+- املئي الحقول الناقصة فقط بناءً على الموجود.
+- إن وُجدت صيغة مختارة فاعملي بها فقط: ${preferred_formula ? preferred_formula : "(لا توجد صيغة مختارة)"}
+- يجب أن تأتي رموز givens و unknowns حصريًا من رموز الصيغة المختارة.
+- steps تحتوي تعويضًا عدديًا صريحًا داخل $...$.
+- result تحتوي وحدة داخل \\mathrm{...}.
+- المعادلات فقط داخل $...$ أو $$...$$. لا Markdown ولا شروح خارجة عن JSON.
+`.trim();
 
+    const payload = {
+      contents: [{ role: "user", parts: [{ text: `${want}\n\nالبيانات الحالية (ناقصة):\n${JSON.stringify(data, null, 2)}` }]}],
+      generationConfig: { temperature: 0.25, response_mime_type: "application/json" }
+    };
+
+    const jj  = await postWithRetry(url, payload);
+    const raw = jj?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+
+    let fixed =
+      tryParse(raw) ||
+      tryParse(extractJson(raw)) ||
+      tryParse(sanitizeJson(extractJson(raw))) ||
+      parseLooseJson(raw);
+
+    // تنظيف خفيف للخطوات + الأعداد
+    if (fixed?.steps) {
+      fixed.steps = fixed.steps.map(s => {
+        s = (s ?? "").toString().replace(/^\s*\d+\.\s*/, "").trim();
+        const hasMath = /\$[^$]+\$/.test(s) || /\$\$[\s\S]+\$\$/.test(s);
+        if (!hasMath && /\\mathrm\{[^}]+\}/.test(s)) s = `$${s}$`;
+        return s;
+      });
+    }
+    tidyPayloadNumbers(fixed || {});
+    return fixed || null;
+  } catch {
+    return null;
+  }
+}
 // ===== حارس جودة الاستجابة قبل الإرجاع =====
 const isExampleLike = (action === "example" || action === "example2" || action === "solve");
 
 if (isExampleLike) {
-  // فحص أولي
-  {
-    const chk = checkExampleCompleteness(data);
-    if (!chk.ok) {
+
+// فحص أولي + محاولة إصلاح
+{
+  const chk = checkExampleCompleteness(data);
+  if (!chk.ok) {
+    const fixed = await repairExample(data, concept, preferred_formula, url);
+    if (fixed) {
+      data = fixed;
+      const chkAgain = checkExampleCompleteness(data);
+      if (!chkAgain.ok) {
+        return json({ ok:false, error: `INCOMPLETE_EXAMPLE:missing=[${chkAgain.missing.join(',')}]` }, 502);
+      }
+    } else {
       return json({ ok:false, error: `INCOMPLETE_EXAMPLE:missing=[${chk.missing.join(',')}]` }, 502);
     }
   }
+}
 
   // لو فيه صيغة مختارة…
   if ((preferred_formula ?? "").trim()) {
