@@ -209,45 +209,31 @@ if (window.MathJax?.typesetPromise) MathJax.typesetPromise([tbl]);
 }
 
 /** عرض “اشرح لي” */
-function renderExplain(d, concept){
-  // نظّفي كل صناديق القسم قبل التعبئة
-  ['overview','expFormulas','symbols','steps'].forEach(id=>{
-    const el = document.getElementById(id);
-    if (el){ el.innerHTML=''; while(el.firstChild) el.removeChild(el.firstChild); }
-  });
+// ----- تعريف overview (إزالة $ اليتيمة + تحويل السطرية إلى \( ... \)) -----
+{
+  let ov = (d.overview || '—') + '';
 
-  document.getElementById('exTitle').textContent = d.title || concept || '';
-  document.getElementById('chip2').textContent   = concept || '';
+  // نفك "\$" -> "$"
+  ov = ov.replace(/\\\$/g, '$');
 
-  // ----- تعريف overview: إزالة $ اليتيمة مع الحفاظ على المعادلات -----
-  {
-    let ov = (d.overview || '—') + '';
-    ov = ov.replace(/\\\$/g, '$'); // فك "\$"
+  // نحمي الكتل والسطرية الموجودة مؤقتًا
+  const blocks = [], inlines = [];
+  ov = ov.replace(/\\\[([\s\S]*?)\\\]/g, (_, x) => { blocks.push(x); return '§§B'+(blocks.length-1)+'§§'; });
+  ov = ov.replace(/\\\(([\s\S]*?)\\\)/g, (_, x) => { inlines.push(x); return '§§I'+(inlines.length-1)+'§§'; });
+  ov = ov.replace(/\$\$([\s\S]*?)\$\$/g,       (_, x) => { blocks.push(x); return '§§B'+(blocks.length-1)+'§§'; });
+  ov = ov.replace(/\$([^$]+)\$/g,              (_, x) => { inlines.push(x); return '§§I'+(inlines.length-1)+'§§'; });
 
-    // نحمي كل المعادلات مؤقتًا Placeholders
-    const blocks = [], inlines = [];
-    ov = ov.replace(/\\\[([\s\S]*?)\\\]/g, (_, x) => { blocks.push('$$'+x+'$$'); return '§§B'+(blocks.length-1)+'§§'; });
-    ov = ov.replace(/\\\(([\s\S]*?)\\\)/g, (_, x) => { inlines.push('$'+x+'$');   return '§§I'+(inlines.length-1)+'§§'; });
-    ov = ov.replace(/\$\$([\s\S]*?)\$\$/g,       (_, x) => { blocks.push('$$'+x+'$$'); return '§§B'+(blocks.length-1)+'§§'; });
-    ov = ov.replace(/\$([^$]+)\$/g,              (_, x) => { inlines.push('$'+x+'$');   return '§§I'+(inlines.length-1)+'§§'; });
+  // أي $ بقيت الآن يتيمة -> احذفها
+  ov = ov.replace(/\$/g, '');
 
-    // أي $ متبقية الآن بالضرورة يتيمة → احذفها
-    ov = ov.replace(/\$/g, '');
+  // استرجاع: الكتل بصيغة \[...\] والسطرية بصيغة \(...\) (بدون $ نهائيًا)
+  ov = ov
+    .replace(/§§B(\d+)§§/g, (_m, i) => `\$begin:math:display$${blocks[i]}\\$end:math:display$`)
+    .replace(/§§I(\d+)§§/g, (_m, i) => `\$begin:math:text$${inlines[i]}\\$end:math:text$`);
 
-    // استرجاع المعادلات
-    ov = ov
-      .replace(/§§B(\d+)§§/g, (_m, i) => blocks[i])
-      .replace(/§§I(\d+)§§/g, (_m, i) => inlines[i]);
-
-    // لو ما زال النص بلا دلائل رياضيات، لفّ وحدات \mathrm داخل $
-    if (!/(\$|\\\(|\\\[)/.test(ov)) {
-      ov = ov
-        .replace(/(\d+(?:\.\d+)?\s*\\,?\s*\\mathrm\{[^}]+\}(?:\^\d+)?)/g, m => '$'+m+'$')
-        .replace(/(\\mathrm\{[^}]+\})/g,                                    m => '$'+m+'$');
-    }
-
-    document.getElementById('overview').innerHTML = MATH.htmlWithMath(ov);
-  }
+  // تمرير للراسم
+  document.getElementById('overview').innerHTML = MATH.htmlWithMath(ov);
+}
 
   // الصيغ (أزرار قابلة للاختيار)
   const expF = document.getElementById('expFormulas');
