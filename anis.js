@@ -237,10 +237,9 @@ function renderExplain(d, concept){
     ov = ov.replace(/\$/g, '');
 
     // استرجاع: الكتل $$...$$ والسطرية \( ... \)
-    ov = ov
-      .replace(/§§B(\d+)§§/g, (_m, i) => `$$${blocks[i]}$$`)
-      .replace(/§§I(\d+)§§/g, (_m, i) => `\$begin:math:text$${inlines[i]}\\$end:math:text$`);
-
+ov = ov
+  .replace(/§§B(\d+)§§/g, (_m, i) => `$$${blocks[i]}$$`)
+  .replace(/§§I(\d+)§§/g, (_m, i) => `\$begin:math:text$${inlines[i]}\\$end:math:text$`);
     document.getElementById('overview').innerHTML = MATH.htmlWithMath(ov);
   }
 
