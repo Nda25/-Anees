@@ -275,6 +275,53 @@ function renderExplain(d, concept){
   sec.style.display = 'block';
   if (window.MathJax?.typesetPromise) MathJax.typesetPromise([sec]);
 }
+/* ---------------------- عرض "مثال تطبيقي" / "مثال آخر" / "الحل الصحيح" ---------------------- */
+function renderCase(id, d){
+  const box = document.getElementById(id);
+  if (!box) return;
+
+  // نظّفي الحاوية أولًا
+  box.innerHTML = '';
+
+  // 1) السيناريو (نص المسألة)
+  if (d.scenario) {
+    const p = document.createElement('p');
+p.innerHTML = MATH.htmlWithMath(d.scenario);
+    box.appendChild(p);
+  }
+
+  // 2) جدول المعطيات والمجاهيل
+  if ((d.givens && d.givens.length) || (d.unknowns && d.unknowns.length)) {
+    box.appendChild(renderGivenUnknowns(d.givens || [], d.unknowns || []));
+  }
+
+  // 3) الصيغ
+  if (Array.isArray(d.formulas) && d.formulas.length) {
+    box.appendChild(renderFormulasBox(d.formulas));
+  }
+
+  // 4) خطوات الحل
+  if (Array.isArray(d.steps) && d.steps.length) {
+    const ol = document.createElement('ol');
+    (d.steps || []).forEach(s => {
+      const li = document.createElement('li');
+      li.innerHTML = MATH.htmlWithMath(s);  // فيه LaTeX
+      ol.appendChild(li);
+    });
+    box.appendChild(ol);
+  }
+
+  // 5) النتيجة النهائية
+  if (d.result) {
+    const div = document.createElement('div');
+    div.className = 'math-block';
+    div.innerHTML = MATH.htmlWithMath(d.result);
+    box.appendChild(div);
+  }
+
+  // 6) Typeset للجزء كامل
+  if (window.MathJax?.typesetPromise) MathJax.typesetPromise([box]);
+}
 /* ---------------------- استدعاء الدالة السحابية ---------------------- */
 let LAST_PRACTICE_QUESTION = '';
 let LAST_EX1_SCENARIO = '';
