@@ -238,8 +238,8 @@ function renderExplain(d, concept){
       return `§§K${keep.length - 1}§§`;
     });
 
-    // أي $ يتيمة متبقية نحذفها
-    ov = ov.replace(/\$/g, '');
+
+s = s.replace(/(\\mathrm\{[^}]+\})/g, (_m, mm) => `<span class="math-inline">$${mm}$</span>`);
 
     // نعيد ما حفظناه كما هو (بدون أي begin:/end: غريبة)
     ov = ov.replace(/§§K(\d+)§§/g, (_m, i) => keep[i].x);
