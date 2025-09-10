@@ -202,14 +202,14 @@ if (isExampleLike) {
     !data.result;
 
   if (missing) {
-    return json({ ok:false, error: "INCOMPLETE_EXAMPLE" }, 502);
+    return json({ ok:false, error:"INCOMPLETE_EXAMPLE" }, 502);
   }
 
   // لو في صيغة مختارة، ثبّتيها واحصري الرموز عليها
   if ((preferred_formula ?? "").trim()) {
     const pf = (preferred_formula || "").trim();
 
-    // اجعلها أول عنصر (واحد فقط)
+    // اجعلها أول عنصر (احتياط)
     if (!Array.isArray(data.formulas)) data.formulas = [];
     data.formulas = [pf, ...data.formulas.filter(f => (f || "").trim() !== pf)];
 
@@ -229,17 +229,27 @@ if (isExampleLike) {
     };
 
     const allowed = extractVars(pf);
-    const used = new Set([
-      ...((data.givens   || []).map(g => normSym(g.symbol))),
-      ...((data.unknowns || []).map(u => normSym(u.symbol))),
-    ].filter(Boolean));
 
-    for (const s of used) {
-      if (!allowed.has(s)) {
-        return json({ ok:false, error: "FORMULA_SYMBOL_MISMATCH" }, 502);
-      }
+    // 1) اسمحي فقط بالرموز المسموحة داخل الجداول
+    data.givens   = (data.givens   || []).filter(g => allowed.has(normSym(g.symbol)));
+    data.unknowns = (data.unknowns || []).filter(u => allowed.has(normSym(u.symbol)));
+
+    // 2) لو بعد التنظيف صار الجدول ناقص → اعتبريه غير مكتمل لتُعاد المحاولة من الواجهة
+    const missingAfterClean =
+      !data.scenario ||
+      !Array.isArray(data.givens)   || data.givens.length   === 0 ||
+      !Array.isArray(data.unknowns) || data.unknowns.length === 0 ||
+      !Array.isArray(data.steps)    || data.steps.length    === 0 ||
+      !data.result;
+
+    if (missingAfterClean) {
+      return json({ ok:false, error:"INCOMPLETE_EXAMPLE" }, 502);
     }
 
+    // 3) ثبّت أن قائمة الصيغ تحتوي الصيغة المختارة فقط
+    data.formulas = [pf];
+  }
+}
     // طالما كل شيء سليم، ثبّت القائمة لتحتوي الصيغة المختارة فقط
     data.formulas = [pf];
   }
