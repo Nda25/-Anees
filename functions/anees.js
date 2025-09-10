@@ -189,70 +189,71 @@ if (Array.isArray(data.formulas)) {
 // ترتيب الأعداد (منع 1e3 إلخ)
 tidyPayloadNumbers(data);
 
-// ===== حارس جودة الاستجابة قبل الإرجاع =====
+function checkExampleCompleteness(d) {
+  const miss = [];
+  if (!d || typeof d !== 'object') return { ok:false, missing:['data'] };
+  const has = (x) => Array.isArray(x) ? x.length > 0 : !!(x && String(x).trim());
+  if (!has(d.scenario)) miss.push('scenario');
+  if (!has(d.givens))   miss.push('givens');
+  if (!has(d.unknowns)) miss.push('unknowns');
+  if (!has(d.formulas)) miss.push('formulas');
+  if (!has(d.steps))    miss.push('steps');
+  if (!has(d.result))   miss.push('result');
+  return { ok: miss.length === 0, missing: miss };
+}
+
 // ===== حارس جودة الاستجابة قبل الإرجاع =====
 const isExampleLike = (action === "example" || action === "example2" || action === "solve");
 
 if (isExampleLike) {
-  const missing =
-    !data.scenario ||
-    !Array.isArray(data.givens)   || data.givens.length   === 0 ||
-    !Array.isArray(data.unknowns) || data.unknowns.length === 0 ||
-    !Array.isArray(data.formulas) || data.formulas.length === 0 ||
-    !Array.isArray(data.steps)    || data.steps.length    === 0 ||
-    !data.result;
-
-  if (missing) {
-    return json({ ok:false, error: "INCOMPLETE_EXAMPLE" }, 502);
+  // فحص أولي
+  {
+    const chk = checkExampleCompleteness(data);
+    if (!chk.ok) {
+      return json({ ok:false, error: `INCOMPLETE_EXAMPLE:missing=[${chk.missing.join(',')}]` }, 502);
+    }
   }
 
-  // لو في صيغة مختارة، ثبّتيها واحصري الرموز عليها
+  // لو فيه صيغة مختارة…
   if ((preferred_formula ?? "").trim()) {
     const pf = (preferred_formula || "").trim();
-
-    // اجعلها أول عنصر (واحد فقط)
     if (!Array.isArray(data.formulas)) data.formulas = [];
     data.formulas = [pf, ...data.formulas.filter(f => (f || "").trim() !== pf)];
+    data.formulas = [data.formulas[0]];
 
-    // الرموز المسموحة مأخوذة من الصيغة المختارة
-    const normSym = s => (s || "")
-      .toString()
-      .replace(/\$/g, "")
-      .replace(/[{}]/g, "")
-      .replace(/\\mathrm\{[^}]*\}/g, "")
-      .trim();
+    const normSym = s => (s || "").toString()
+      .replace(/\$/g,"").replace(/[{}]/g,"").replace(/\\mathrm\{[^}]*\}/g,"").trim();
 
-    const extractVars = latex => {
-      const t = normSym(latex)
-        .replace(/\\[a-zA-Z]+/g, " ")
-        .replace(/[^A-Za-z_]/g, " ");
-      return new Set(t.split(/\s+/).filter(Boolean));
-    };
+    const extractVars = latex =>
+      new Set(normSym(latex).replace(/\\[a-zA-Z]+/g," ").replace(/[^A-Za-z_]/g," ").split(/\s+/).filter(Boolean));
 
     const allowed = extractVars(pf);
 
-    // اسمحي فقط بالرموز المسموحة داخل الجداول
     data.givens   = (data.givens   || []).filter(g => allowed.has(normSym(g.symbol)));
     data.unknowns = (data.unknowns || []).filter(u => allowed.has(normSym(u.symbol)));
 
-    // تحقق بعد التنظيف
-    const missingAfterClean =
-      !data.scenario ||
-      !Array.isArray(data.givens)   || data.givens.length   === 0 ||
-      !Array.isArray(data.unknowns) || data.unknowns.length === 0 ||
-      !Array.isArray(data.steps)    || data.steps.length    === 0 ||
-      !data.result;
-
-    if (missingAfterClean) {
-      return json({ ok:false, error: "INCOMPLETE_EXAMPLE" }, 502);
+    const chk2 = checkExampleCompleteness(data);
+    if (!chk2.ok) {
+      return json({ ok:false, error: `INCOMPLETE_EXAMPLE_AFTER_FILTER:missing=[${chk2.missing.join(',')}]` }, 502);
     }
-
-    // ثبّت القائمة لتحتوي الصيغة المختارة فقط
-    data.formulas = [pf];
   }
-}
 
-// تحقق من سؤال "اختبر فهمي"
+  // تشديدات example2 (اختياري)
+  if (action === "example2") {
+    if (!String(data.scenario||"").includes(concept)) {
+      return json({ ok:false, error: "EX2_SCENARIO_MUST_INCLUDE_CONCEPT" }, 502);
+    }
+    const hasNumericSub = (data.steps || []).some(s => /\$[^$]*\d+[^$]*\$/.test(String(s||"")));
+    if (!hasNumericSub) {
+      return json({ ok:false, error: "EX2_STEPS_NEED_NUMERIC_SUBSTITUTION" }, 502);
+    }
+    if (!/\\mathrm\{[^}]+\}/.test(String(data.result||""))) {
+      return json({ ok:false, error: "EX2_RESULT_MISSING_UNIT" }, 502);
+    }
+  }
+} // <-- نهاية isExampleLike
+
+// ✅ تحقق من سؤال "اختبر فهمي"
 if (action === "practice") {
   const q = (data?.question || "").trim();
   const conceptIn = q.includes(concept);
@@ -263,11 +264,6 @@ if (action === "practice") {
 
 // ✅ أخيرًا نرجّع الرد
 return json({ ok: true, data });
-
-} catch (e) {
-  return json({ ok:false, error: e?.message || "Unexpected error" }, 500);
-}
-}; // ← نهاية exports.handler
 
 /* ---------- Helpers ---------- */
 function json(obj, status=200){
