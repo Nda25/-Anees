@@ -185,9 +185,10 @@ if (Array.isArray(data.formulas)) {
     data.formulas = data.formulas.filter(f => !/\bF\s*=\s*m\s*\*?\s*a\b/i.test(String(f || '')));
   }
 }
-
+    
 // ترتيب الأعداد (منع 1e3 إلخ)
 tidyPayloadNumbers(data);
+
 // ===== حارس جودة الاستجابة قبل الإرجاع =====
 const isExampleLike = (action === "example" || action === "example2" || action === "solve");
 
@@ -200,22 +201,48 @@ if (isExampleLike) {
     !Array.isArray(data.steps)    || data.steps.length    === 0 ||
     !data.result;
 
-  // لو النموذج رجّع مثال ناقص نرفضه (الفرونت سيعرض رسالة ويحاولي مرة ثانية يدويًا)
   if (missing) {
     return json({ ok: false, error: "INCOMPLETE_EXAMPLE" }, 502);
   }
 
-  // لو في صيغة مختارة، تأكد أنها أول عنصر
+  // لو في صيغة مختارة، تأكد أنها أول عنصر + قيّد الرموز
   if ((preferred_formula ?? "").trim()) {
     const pf = (preferred_formula || "").trim();
     const first = (data.formulas[0] || "").trim();
     if (first !== pf) {
-      // ضعه أولاً (احتياط)
       data.formulas = [pf, ...data.formulas.filter(f => (f || "").trim() !== pf)];
+    }
+
+    // ✅ الرموز في الجدول لازم تكون من نفس رموز الصيغة المختارة
+    const normSym = (s) => (s || "")
+      .toString()
+      .replace(/\$/g, "")
+      .replace(/[{}]/g, "")
+      .replace(/\\mathrm\{[^}]*\}/g, "")
+      .trim();
+
+    const extractVars = (latex) => {
+      const t = normSym(latex)
+        .replace(/\\[a-zA-Z]+/g, " ") // شيل أوامر LaTeX
+        .replace(/[^A-Za-z_]/g, " "); // خلِّ الحروف والـ _
+      return new Set(t.split(/\s+/).filter(Boolean));
+    };
+
+    const allowed = extractVars(pf);
+    const used = new Set([
+      ...((data.givens   || []).map(g => normSym(g.symbol))),
+      ...((data.unknowns || []).map(u => normSym(u.symbol))),
+    ].filter(Boolean));
+
+    for (const s of used) {
+      if (!allowed.has(s)) {
+        return json({ ok:false, error: "FORMULA_SYMBOL_MISMATCH" }, 502);
+      }
     }
   }
 }
 
+// تحقق من سؤال "اختبر فهمي"
 if (action === "practice") {
   const q = (data?.question || "").trim();
   const conceptIn = q.includes(concept);
@@ -223,12 +250,13 @@ if (action === "practice") {
     return json({ ok: false, error: "INCOMPLETE_PRACTICE_QUESTION" }, 502);
   }
 }
+// ✅ أخيرًا نرجّع الرد
 return json({ ok: true, data });
-  } catch (e) {
-    return json({ ok:false, error: e?.message || "Unexpected error" }, 500);
-  }
-}; // ← هذا يقفل exports.handler
 
+} catch (e) {
+  return json({ ok:false, error: e?.message || "Unexpected error" }, 500);
+}
+}; // ← نهاية exports.handler
 /* ---------- Helpers ---------- */
 function json(obj, status=200){
   return {
@@ -456,16 +484,13 @@ else if (action === "practice") {
 - ممنوع إدخال مجاهيل إضافية غير مرتبطة بالصيغ المطلوبة.
 - إن كان «${concept}» هو "السقوط الحر" فاعتبر $g=9.8\\,\\mathrm{m/s^2}$ وتجاهل مقاومة الهواء.`;
 
-// (اختياري) لو فيه preferred_formula وجهي صياغة السؤال بحيث يمكن حله بهذه الصيغة:
+  // توجيه اختيار الصيغة (إن وُجدت) مرة واحدة فقط
   if (preferred_formula) {
-  prompt += `
-مهم جدًا (شرط مُلزِم):
-- استخدمي الصيغة التالية فقط في جميع الحسابات ولا تستخدمي أو تذكري أي صيغة أخرى إطلاقًا:
+    prompt += `
+وجّهي صياغة السؤال بحيث يكون قابلاً للحل مباشرة باستخدام الصيغة التالية (لا تذكري الصيغة في نص السؤال):
 ${preferred_formula}
-- ضعيها أول عنصر في "formulas" ولا تضيفي سواها.
-- يجب أن تأتي رموز "givens" و"unknowns" حصريًا من رموز هذه الصيغة.
-- يجب أن تُظهر "steps" تعويضًا مباشرًا بهذه الصيغة من البداية حتى الحصول على النتيجة النهائية، بلا أي التفاف أو قوانين إضافية.`;
-}
+- رتّبي المعطيات بحيث لا يمكن حل السؤال إلا بهذه الصيغة دون قوانين إضافية.`;
+  }
 
   temp = 0.55;
 } else if (action === "solve") {
