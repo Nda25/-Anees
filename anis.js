@@ -283,12 +283,21 @@ function renderCase(id, d){
   // نظّفي الحاوية أولًا
   box.innerHTML = '';
 
-  // 1) السيناريو (نص المسألة)
-  if (d.scenario) {
-    const p = document.createElement('p');
-p.innerHTML = MATH.htmlWithMath(d.scenario);
-    box.appendChild(p);
-  }
+// 1) السيناريو (عنوان + نص المسألة)
+if (d.scenario) {
+  const h3 = document.createElement('h3');
+  h3.className = 'sub';
+  h3.style.textAlign = 'center';
+  h3.textContent = 'المسألة';
+  box.appendChild(h3);
+
+  const p = document.createElement('div');
+  p.className = 'box';
+  p.style.textAlign = 'right';
+  p.style.lineHeight = '1.8';
+  p.innerHTML = MATH.htmlWithMath(d.scenario);  // نص المسألة مع LaTeX
+  box.appendChild(p);
+}
 
   // 2) جدول المعطيات والمجاهيل
   if ((d.givens && d.givens.length) || (d.unknowns && d.unknowns.length)) {
