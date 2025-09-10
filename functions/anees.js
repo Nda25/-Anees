@@ -253,71 +253,79 @@ async function repairExample(data, concept, preferred_formula, url) {
   }
 }
 // ===== حارس جودة الاستجابة قبل الإرجاع =====
+// ===== حارس جودة الاستجابة قبل الإرجاع =====
 const isExampleLike = (action === "example" || action === "example2" || action === "solve");
 
 if (isExampleLike) {
-
-// فحص أولي + محاولة إصلاح
-{
-  const chk = checkExampleCompleteness(data);
-  if (!chk.ok) {
-    const fixed = await repairExample(data, concept, preferred_formula, url);
-    if (fixed) {
-      data = fixed;
-      const chkAgain = checkExampleCompleteness(data);
-      if (!chkAgain.ok) {
-        return json({ ok:false, error: `INCOMPLETE_EXAMPLE:missing=[${chkAgain.missing.join(',')}]` }, 502);
+  // فحص أولي + محاولة إصلاح تلقائي إن لزم
+  {
+    const chk = checkExampleCompleteness(data);
+    if (!chk.ok) {
+      const fixed = await repairExample(data, concept, preferred_formula, url);
+      if (fixed) {
+        data = fixed;
+        const chkAgain = checkExampleCompleteness(data);
+        if (!chkAgain.ok) {
+          return json({ ok:false, error: `INCOMPLETE_EXAMPLE:missing=[${chkAgain.missing.join(',')}]` }, 502);
+        }
+      } else {
+        return json({ ok:false, error: `INCOMPLETE_EXAMPLE:missing=[${chk.missing.join(',')}]` }, 502);
       }
-    } else {
-      return json({ ok:false, error: `INCOMPLETE_EXAMPLE:missing=[${chk.missing.join(',')}]` }, 502);
     }
   }
-}
 
-  // لو فيه صيغة مختارة…
+  // تثبيت القانون المختار (إن وُجد) — صيغة واحدة فقط + حصر الرموز عليها
   if ((preferred_formula ?? "").trim()) {
     const pf = (preferred_formula || "").trim();
-    if (!Array.isArray(data.formulas)) data.formulas = [];
-    data.formulas = [pf, ...data.formulas.filter(f => (f || "").trim() !== pf)];
-    data.formulas = [data.formulas[0]];
 
+    // اجعل "formulas" صيغة واحدة فقط هي المختارة
+    if (!Array.isArray(data.formulas)) data.formulas = [];
+    data.formulas = [pf];
+
+    // استخراج الرموز المسموحة من LaTeX للصيغة المختارة
     const normSym = s => (s || "").toString()
       .replace(/\$/g,"").replace(/[{}]/g,"").replace(/\\mathrm\{[^}]*\}/g,"").trim();
 
     const extractVars = latex =>
-      new Set(normSym(latex).replace(/\\[a-zA-Z]+/g," ").replace(/[^A-Za-z_]/g," ").split(/\s+/).filter(Boolean));
+      new Set(
+        normSym(latex)
+          .replace(/\\[a-zA-Z]+/g," ")
+          .replace(/[^A-Za-z_]/g," ")
+          .split(/\s+/).filter(Boolean)
+      );
 
     const allowed = extractVars(pf);
 
+    // حصر givens/unknowns على رموز الصيغة فقط
     data.givens   = (data.givens   || []).filter(g => allowed.has(normSym(g.symbol)));
     data.unknowns = (data.unknowns || []).filter(u => allowed.has(normSym(u.symbol)));
 
+    // تأكيد الاكتمال بعد الحصر
     const chk2 = checkExampleCompleteness(data);
     if (!chk2.ok) {
       return json({ ok:false, error: `INCOMPLETE_EXAMPLE_AFTER_FILTER:missing=[${chk2.missing.join(',')}]` }, 502);
     }
   }
 
-  // تشديدات example2 (اختياري)
+  // تشديدات خاصة بـ example2 (اختياري)
   if (action === "example2") {
-    if (!String(data.scenario||"").includes(concept)) {
+    if (!String(data.scenario || "").includes(concept)) {
       return json({ ok:false, error: "EX2_SCENARIO_MUST_INCLUDE_CONCEPT" }, 502);
     }
-    const hasNumericSub = (data.steps || []).some(s => /\$[^$]*\d+[^$]*\$/.test(String(s||"")));
+    const hasNumericSub = (data.steps || []).some(s => /\$[^$]*\d+[^$]*\$/.test(String(s || "")));
     if (!hasNumericSub) {
       return json({ ok:false, error: "EX2_STEPS_NEED_NUMERIC_SUBSTITUTION" }, 502);
     }
-    if (!/\\mathrm\{[^}]+\}/.test(String(data.result||""))) {
+    if (!/\\mathrm\{[^}]+\}/.test(String(data.result || ""))) {
       return json({ ok:false, error: "EX2_RESULT_MISSING_UNIT" }, 502);
     }
   }
 } // <-- نهاية isExampleLike
-
-// ✅ تحقق من سؤال "اختبر فهمي"
+    
+// ✅ فحص سؤال "اختبر فهمي" — يجب أن يذكر المفهوم نصًا
 if (action === "practice") {
   const q = (data?.question || "").trim();
-  const conceptIn = q.includes(concept);
-  if (!q || !conceptIn) {
+  if (!q || !q.includes(concept)) {
     return json({ ok:false, error: "INCOMPLETE_PRACTICE_QUESTION" }, 502);
   }
 }
