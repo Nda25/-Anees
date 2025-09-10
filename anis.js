@@ -238,8 +238,8 @@ function renderExplain(d, concept){
 
     // استرجاع: الكتل \[...\] والسطرية \(...\)
     ov = ov
-      .replace(/§§B(\d+)§§/g, (_m, i) => `\$begin:math:display$${blocks[i]}\\$end:math:display$`)
-      .replace(/§§I(\d+)§§/g, (_m, i) => `\$begin:math:text$${inlines[i]}\\$end:math:text$`);
+    .replace(/§§B(\d+)§§/g, (_m, i) => `\$begin:math:display$${blocks[i]}\\$end:math:display$`)
+       .replace(/§§I(\d+)§§/g, (_m, i) => `\$begin:math:text$${inlines[i]}\\$end:math:text$`);
 
     // مرّريه ليترسم
     document.getElementById('overview').innerHTML = MATH.htmlWithMath(ov);
