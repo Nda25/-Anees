@@ -252,7 +252,7 @@ async function repairExample(data, concept, preferred_formula, url) {
     return null;
   }
 }
-// ===== حارس جودة الاستجابة قبل الإرجاع =====
+
 // ===== حارس جودة الاستجابة قبل الإرجاع =====
 const isExampleLike = (action === "example" || action === "example2" || action === "solve");
 
@@ -277,7 +277,56 @@ if (isExampleLike) {
   // تثبيت القانون المختار (إن وُجد) — صيغة واحدة فقط + حصر الرموز عليها
   if ((preferred_formula ?? "").trim()) {
     const pf = (preferred_formula || "").trim();
+    // --- حراس صارمة لضمان الالتزام بالصّيغة المختارة ---
+    const normLatex = (s="") =>
+      String(s)
+        .replace(/\$+/g,"")
+        .replace(/[{}]/g,"")
+        .replace(/\\mathrm\{[^}]*\}/g,"")
+        .replace(/\\,/g,"")
+        .replace(/\s+/g,"")
+        .toLowerCase();
 
+    // رموز الصيغة المسموحة (مستخرجة من pf) + ثوابت مسموحة
+    const extractVars = (latex) =>
+      new Set(
+        normLatex(latex)
+          .replace(/\\[a-zA-Z]+/g," ")      // احذف أوامر LaTeX
+          .replace(/[^A-Za-z_]/g," ")       // اترك الحروف فقط
+          .split(/\s+/).filter(Boolean)
+      );
+    const allowed = extractVars(pf);
+    const ALLOWED_CONSTANTS = new Set(["g"]); // أضيفي ثوابت أخرى لو لزم
+
+    // 1) منع رموز غريبة داخل الخطوات والنتيجة
+    const usesOnlyAllowedSymbols = (txt="") => {
+      const tokens = extractVars(txt);
+      for (const v of tokens) {
+        if (!allowed.has(v) && !ALLOWED_CONSTANTS.has(v)) return false;
+      }
+      return true;
+    };
+
+    const allTextToCheck = [
+      ...(data.steps || []),
+      String(data.result || "")
+    ];
+    const foreignFound = allTextToCheck.some(s => !usesOnlyAllowedSymbols(s));
+    if (foreignFound) {
+      return json({ ok:false, error: "STEPS_CONTAIN_FOREIGN_SYMBOLS" }, 502);
+    }
+
+    // 2) يجب أن تظهر الصيغة المختارة صراحة في الخطوات
+    const pfNorm = normLatex(pf);
+    const stepHasPf = (data.steps || []).some(s => normLatex(s).includes(pfNorm));
+    // كما نمنع الصيغة البديلة الشائعة v_f^2 = v_i^2 + 2 g y
+    const bannedKinematics = (data.steps || []).some(s =>
+      /v_?\s*\\?f\s*\^\s*2/.test(String(s)) && /2\s*\*?\s*g\s*[^$]*y/.test(String(s))
+    );
+
+    if (!stepHasPf || bannedKinematics) {
+      return json({ ok:false, error: "WRONG_FORMULA_USED" }, 502);
+    }
     // اجعل "formulas" صيغة واحدة فقط هي المختارة
     if (!Array.isArray(data.formulas)) data.formulas = [];
     data.formulas = [pf];
@@ -295,11 +344,15 @@ if (isExampleLike) {
       );
 
     const allowed = extractVars(pf);
+// لا نحصر المعطيات؛ نسمح بمعطيات مساعدة (مثل y)
+// فقط نتأكد أن المجهول نفسه من رموز الصيغة المختارة
+// اترك المعطيات كما هي:
+data.givens = Array.isArray(data.givens) ? data.givens : [];
 
-    // حصر givens/unknowns على رموز الصيغة فقط
-    data.givens   = (data.givens   || []).filter(g => allowed.has(normSym(g.symbol)));
-    data.unknowns = (data.unknowns || []).filter(u => allowed.has(normSym(u.symbol)));
-
+// احصر المجهول على رموز الصيغة:
+if (Array.isArray(data.unknowns)) {
+  data.unknowns = data.unknowns.filter(u => allowed.has(normSym(u.symbol)));
+}
     // تأكيد الاكتمال بعد الحصر
     const chk2 = checkExampleCompleteness(data);
     if (!chk2.ok) {
